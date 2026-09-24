@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador 3E - Grúa Electromagnética VR</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        #app { display: flex; height: 100vh; background: #1a1a2e; color: #eee; }
+
+        #panel-control {
+            width: 380px;
+            background: #16213e;
+            padding: 15px;
+            overflow-y: auto;
+            border-right: 2px solid #0f3460;
+            transition: margin-left 0.3s;
+        }
+        #panel-control h1 { font-size: 1.2em; color: #e94560; }
+        #panel-control h2 { font-size: 0.9em; color: #aaa; margin-bottom: 15px; }
+        #panel-control h3 {
+            font-size: 1em;
+            color: #4ecca3;
+            margin: 15px 0 10px;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 5px;
+        }
+        label { display: block; margin-bottom: 10px; font-size: 0.85em; color: #ccc; }
+        input[type="range"] { width: 100%; margin-top: 4px; accent-color: #e94560; }
+        select {
+            width: 100%;
+            padding: 5px;
+            margin-top: 4px;
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #4ecca3;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover { background: #c73650; }
+
+        .hud {
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+        .hud-seccion { padding: 6px 0; border-bottom: 1px solid #1a3a60; }
+        .hud-seccion:last-child { border-bottom: none; }
+        .hud-titulo { color: #4ecca3; font-weight: bold; font-size: 0.9em; margin-bottom: 4px; }
+        .hud-real { color: #ff8c00; }
+        .hud-real .hud-titulo { color: #ff8c00; }
+
+        #alerta-peligro {
+            background: #ff0000;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            animation: parpadeo 0.5s infinite alternate;
+            margin-top: 10px;
+        }
+        #aviso-capas, #aviso-saturacion, #aviso-vueltas {
+            background: #ff8c00;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 0.8em;
+            margin-top: 8px;
+        }
+        .oculto { display: none !important; }
+        @keyframes parpadeo { from { opacity: 1; } to { opacity: 0.3; } }
+
+        #vista-3d { flex: 1; position: relative; }
+        #modo-indicador {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.6);
+            color: #4ecca3;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            z-index: 10;
+        }
+        #flash-explosion {
+            position: absolute;
+            inset: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+            transition: opacity 0.15s;
+        }
+        #flash-explosion.activo { opacity: 1; }
+
+        #ayuda-cabina {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #4ecca3;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            z-index: 10;
+            text-align: center;
+            line-height: 1.5;
+            max-width: 600px;
+        }
+
+        /* ============================================
+           BOTÓN VR (WebXR)
+           ============================================ */
+        #btn-entrar-vr {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: linear-gradient(135deg, #4ecca3 0%, #2a9d8f 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            z-index: 100;
+            border: 2px solid #fff;
+            box-shadow: 0 4px 15px rgba(78, 204, 163, 0.5);
+            user-select: none;
+            transition: 0.3s;
+        }
+        #btn-entrar-vr:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(78, 204, 163, 0.8);
+        }
+        #btn-entrar-vr.oculto { display: none; }
+
+        /* ============================================
+           PANEL DE CONTROL FLOTANTE (MODO GRÚA)
+           ============================================ */
+        #panel-grua-flotante {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+            border: 2px solid #ffcc00;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.8), 0 0 20px rgba(255, 204, 0, 0.2);
+            z-index: 50;
+            display: none;
+        }
+        #panel-grua-flotante.visible { display: block; }
+
+        #panel-grua-flotante h3 {
+            color: #ffcc00;
+            font-size: 0.9em;
+            text-align: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
+            letter-spacing: 2px;
+        }
+
+        #pantalla-digital {
+            width: 100%;
+            height: 100px;
+            background: #0a0f0a;
+            border: 2px solid #00ff88;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .control-grua {
+            margin-bottom: 12px;
+            background: rgba(0,0,0,0.4);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border-left: 3px solid;
+        }
+        .control-grua.potencia { border-color: #ff3333; }
+        .control-grua.rotacion { border-color: #33aaff; }
+        .control-grua.extension { border-color: #33ff33; }
+        .control-grua.elevacion { border-color: #ffcc00; }
+
+        .control-grua label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+            color: #fff;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .control-grua .valor {
+            color: #ffcc00;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .control-grua input[type="range"] {
+            margin-top: 0;
+            height: 8px;
+        }
+        .control-grua.potencia input[type="range"] { accent-color: #ff3333; }
+        .control-grua.rotacion input[type="range"] { accent-color: #33aaff; }
+        .control-grua.extension input[type="range"] { accent-color: #33ff33; }
+        .control-grua.elevacion input[type="range"] { accent-color: #ffcc00; }
+
+        .luces-indicadoras {
+            display: flex;
+            justify-content: space-around;
+            margin: 12px 0;
+            padding: 8px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 6px;
+        }
+        .luz {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #222;
+            transition: 0.3s;
+        }
+        .luz.verde { background: #00ff00; box-shadow: 0 0 10px #00ff00; }
+        .luz.verde.apagada { background: #003300; box-shadow: none; }
+        .luz.amarilla { background: #ffaa00; box-shadow: 0 0 10px #ffaa00; }
+        .luz.amarilla.apagada { background: #333300; box-shadow: none; }
+        .luz.roja { background: #ff0000; box-shadow: 0 0 10px #ff0000; }
+        .luz.roja.apagada { background: #330000; box-shadow: none; }
+
+        #btn-soltar-flotante {
+            width: 100%;
+            padding: 10px;
+            background: #ff3333;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+            transition: 0.2s;
+        }
+        #btn-soltar-flotante:hover { background: #cc0000; }
+
+        #btn-toggle-panel {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: bold;
+            z-index: 100;
+            border: 1px solid #4ecca3;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            user-select: none;
+        }
+        #btn-toggle-panel:hover { background: rgba(78, 204, 163, 0.5); }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <aside id="panel-control">
+            <h1>🔧 Simulador 3E</h1>
+            <h2>Grúa Electromagnética VR</h2>
+
+            <section id="modulo-diseno">
+                <h3>1. Diseño de la Bobina</h3>
+                <label>Longitud del tubo (cm):
+                    <input type="range" id="longitud" min="2" max="30" value="10" step="0.5">
+                    <span id="longitud-val">10.0</span>
+                </label>
+                <label>Diámetro del tubo (cm):
+                    <input type="range" id="diametro" min="1" max="15" value="5" step="0.5">
+                    <span id="diametro-val">5.0</span>
+                </label>
+                <label>Número de vueltas:
+                    <input type="range" id="vueltas" min="10" max="3000" value="200" step="10">
+                    <span id="vueltas-val">200</span>
+                </label>
+                <label>Calibre del alambre (AWG):
+                    <select id="calibre">
+                        <option value="10">AWG 10 (2.59 mm)</option>
+                        <option value="12">AWG 12 (2.05 mm)</option>
+                        <option value="14">AWG 14 (1.63 mm)</option>
+                        <option value="16">AWG 16 (1.29 mm)</option>
+                        <option value="18">AWG 18 (1.02 mm)</option>
+                        <option value="20" selected>AWG 20 (0.81 mm)</option>
+                        <option value="22">AWG 22 (0.64 mm)</option>
+                        <option value="24">AWG 24 (0.51 mm)</option>
+                        <option value="26">AWG 26 (0.40 mm)</option>
+                        <option value="28">AWG 28 (0.32 mm)</option>
+                    </select>
+                </label>
+                <label>Material del núcleo:
+                    <select id="nucleo">
+                        <option value="aire">Aire (μr = 1)</option>
+                        <option value="hierro" selected>Hierro dulce (μr = 5000)</option>
+                        <option value="ferrita">Ferrita (μr = 2000)</option>
+                        <option value="silicio">Acero al silicio (μr = 7000)</option>
+                        <option value="permalloy">Permalloy (μr = 100000)</option>
+                    </select>
+                </label>
+                <label>Forma del núcleo:
+                    <select id="forma">
+                        <option value="barra" selected>Barra recta</option>
+                        <option value="u">U / Herradura</option>
+                        <option value="toroidal">Toroidal</option>
+                        <option value="aire">Sin núcleo (aire)</option>
+                    </select>
+                </label>
+                <div id="aviso-capas" class="oculto"></div>
+                <div id="aviso-vueltas" class="oculto"></div>
+                <button id="btn-guardar">💾 Guardar Diseño (Word)</button>
+            </section>
+
+            <section id="modulo-energizacion">
+                <h3>2. Energización</h3>
+                <label>Corriente (A):
+                    <input type="range" id="corriente" min="0" max="30" value="0" step="0.1">
+                    <span id="corriente-val">0.0</span>
+                </label>
+                <div class="hud">
+                    <div class="hud-seccion">
+                        <div class="hud-titulo">⚙️ MODELO IDEAL</div>
+                        <div><strong>Voltaje:</strong> <span id="hud-V">0.00</span> V</div>
+                        <div><strong>B ideal:</strong> <span id="hud-B-ideal">0.00</span> T</div>
+                        <div><strong>Fuerza ideal:</strong> <span id="hud-F">0.00</span> N</div>
+                        <div><strong>Peso máx ideal:</strong> <span id="hud-m">0.00</span> kg</div>
+                    </div>
+                    <div class="hud-seccion hud-real">
+                        <div class="hud-titulo">🔬 MODELO REALISTA</div>
+                        <div><strong>B real:</strong> <span id="hud-B-real">0.00</span> T</div>
+                        <div><strong>Fuerza real:</strong> <span id="hud-F-real">0.00</span> N</div>
+                        <div><strong>Peso máx real:</strong> <span id="hud-m-real">0.00</span> g</div>
+                        <div><strong>Factor k:</strong> <span id="hud-k">0.00</span></div>
+                    </div>
+                    <div class="hud-seccion">
+                        <div><strong>Potencia:</strong> <span id="hud-P">0.00</span> W</div>
+                        <div><strong>Temperatura:</strong> <span id="hud-T">25</span> °C</div>
+                        <div><strong>Saturación:</strong> <span id="hud-sat">No</span></div>
+                    </div>
+                </div>
+                <div id="aviso-saturacion" class="oculto">⚡ Núcleo SATURADO</div>
+                <div id="alerta-peligro" class="oculto">⚠️ ¡PELIGRO! Bobina sobrecalentándose</div>
+            </section>
+
+            <section id="modulo-grua">
+                <h3>3. Grúa Electromagnética</h3>
+                <button id="btn-equipar">🏗️ Equipar en la Grúa</button>
+                <button id="btn-volver" style="background: #4ecca3;">↩️ Volver al Diseño</button>
+                <button id="btn-soltar">🔓 Soltar peso</button>
+            </section>
+        </aside>
+
+        <main id="vista-3d">
+            <div id="modo-indicador">📐 MODO DISEÑO</div>
+            <div id="flash-explosion"></div>
+
+            <button id="btn-entrar-vr">🥽 Entrar en VR</button>
+
+            <div id="ayuda-cabina" class="oculto">
+                🖱️ Clic izq: girar · Clic der: desplazar · Rueda: zoom
+            </div>
+
+            <div id="btn-toggle-panel" class="oculto">📋 Mostrar panel</div>
+
+            <div id="panel-grua-flotante">
+                <h3>⚙️ CONTROL DE GRÚA</h3>
+
+                <canvas id="pantalla-digital" width="512" height="256"></canvas>
+
+                <div class="control-grua potencia">
+                    <label>
+                        <span>⚡ POTENCIA</span>
+                        <span class="valor" id="val-potencia">0.0 A</span>
+                    </label>
+                    <input type="range" id="ctrl-potencia" min="0" max="30" value="0" step="0.1">
+                </div>
+
+                <div class="control-grua rotacion">
+                    <label>
+                        <span>🔄 ROTACIÓN</span>
+                        <span class="valor" id="val-rotacion">0°</span>
+                    </label>
+                    <input type="range" id="ctrl-rotacion" min="0" max="360" value="0" step="1">
+                </div>
+
+                <div class="control-grua extension">
+                    <label>
+                        <span>↔️ EXTENSIÓN</span>
+                        <span class="valor" id="val-extension">1.0</span>
+                    </label>
+                    <input type="range" id="ctrl-extension" min="0.2" max="2.0" value="1.0" step="0.05">
+                </div>
+
+                <div class="control-grua elevacion">
+                    <label>
+                        <span>⬆️ ELEVACIÓN</span>
+                        <span class="valor" id="val-elevacion">0.00</span>
+                    </label>
+                    <input type="range" id="ctrl-elevacion" min="-1" max="1" value="0" step="0.05">
+                </div>
+
+                <div class="luces-indicadoras">
+                    <div class="luz verde" id="luz-verde" title="OK"></div>
+                    <div class="luz amarilla apagada" id="luz-amarilla" title="Advertencia"></div>
+                    <div class="luz roja apagada" id="luz-roja" title="Peligro"></div>
+                </div>
+
+                <button id="btn-soltar-flotante">🔓 SOLTAR PESO</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="fisica.js"></script>
+    <script src="escena.js"></script>
+    <script src="grua.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
