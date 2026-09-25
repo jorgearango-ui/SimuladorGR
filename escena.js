@@ -1,5 +1,5 @@
 // ============================================
-// MÓDULO DE ESCENA 3D CON VR - PANELES TRIANGULARES
+// MÓDULO DE ESCENA 3D CON VR - VERSIÓN CORREGIDA
 // ============================================
 
 class Escena3D {
@@ -107,6 +107,7 @@ class Escena3D {
         this.modo = 'diseno';
         this.formaActual = 'barra';
 
+        // Construir todo
         this.crearLaboratorio();
         this.crearPantallaValores();
         this.crearPanelA_Sliders();
@@ -115,6 +116,14 @@ class Escena3D {
         this.crearPanelD_GruaSliders();
         this.crearPanelE_GruaAcciones();
         this.crearPanelF_GruaValores();
+
+        // Visibilidad inicial (modo diseño)
+        this.grupoPanelA.visible = true;
+        this.grupoPanelB.visible = true;
+        this.grupoPanelC.visible = true;
+        this.grupoPanelD.visible = false;
+        this.grupoPanelE.visible = false;
+        this.grupoPanelF.visible = false;
 
         this.renderer.setAnimationLoop(this.animate.bind(this));
     }
@@ -150,12 +159,11 @@ class Escena3D {
 
     onGatilloPresionado(controller) {
         this.raycasterVR.setFromXRController(controller);
-        this.raycasterVR.far = 5;
+        this.raycasterVR.far = 6;
 
         // 1. Sliders
         const intersectSliders = this.raycasterVR.intersectObjects(this.slidersVR, true);
         if (intersectSliders.length > 0) {
-            // Subir por la jerarquía hasta encontrar el userData
             let obj = intersectSliders[0].object;
             while (obj && !obj.userData.esSliderVR && obj.parent) obj = obj.parent;
             if (obj && obj.userData.esSliderVR) {
@@ -187,19 +195,37 @@ class Escena3D {
         }
     }
 
-    onGatilloSoltado(controller) {
+    onGatilloSoltado() {
         this.sliderActivo = null;
     }
 
     ciclarBoton(boton) {
         const tipo = boton.userData.tipoBoton;
         const opciones = boton.userData.opciones;
-        const indiceActual = boton.userData.indice;
-        const nuevoIndice = (indiceActual + 1) % opciones.length;
+        const nuevoIndice = (boton.userData.indice + 1) % opciones.length;
         boton.userData.indice = nuevoIndice;
         const nuevoValor = opciones[nuevoIndice];
-        this.actualizarTextoBoton(boton, String(nuevoValor).toUpperCase());
 
+        // Actualizar el texto del botón
+        const tm = boton.userData.textoMesh;
+        if (tm) {
+            const textura = tm.material.map;
+            const canvas = textura.image;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, 512, 128);
+            ctx.strokeStyle = '#4ecca3';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(6, 6, 500, 116);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 52px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(nuevoValor).toUpperCase(), 256, 64);
+            textura.needsUpdate = true;
+        }
+
+        // Aplicar al estado
         if (tipo === 'awg') {
             estado.awg = parseInt(nuevoValor);
             const sel = document.getElementById('calibre');
@@ -218,64 +244,43 @@ class Escena3D {
 
     ejecutarAccion(boton) {
         const accion = boton.userData.accion;
-        console.log('Acción:', accion);
+        console.log('Acción VR:', accion);
 
         if (accion === 'guardar') {
             if (typeof generarInforme === 'function' && estado.resultado) {
                 generarInforme(estado, estado.resultado);
             }
         } else if (accion === 'equipar') {
-            if (typeof equiparGrua === 'function') {
-                equiparGrua();
-            } else {
-                // Fallback: hacerlo directamente aquí
-                if (!estado.resultado) return;
-                estado.modo = 'grua';
-                estado.equipada = true;
-                if (this.crearEntornoIndustrial) this.crearEntornoIndustrial();
-                if (typeof grua !== 'undefined' && grua) grua.equipar(estado, estado.resultado);
-                this.cambiarAmbiente('grua');
+            if (typeof window.equiparGrua === 'function') {
+                window.equiparGrua();
             }
         } else if (accion === 'volver') {
-            if (typeof volverDiseno === 'function') {
-                volverDiseno();
-            } else {
-                estado.modo = 'diseno';
-                estado.equipada = false;
-                if (typeof grua !== 'undefined' && grua) grua.soltarPeso();
-                this.cambiarAmbiente('diseno');
-                if (typeof actualizarTodo === 'function') actualizarTodo();
+            if (typeof window.volverDiseno === 'function') {
+                window.volverDiseno();
             }
         } else if (accion === 'soltar') {
             if (typeof grua !== 'undefined' && grua) grua.soltarPeso();
         }
-
-        // Efecto visual: parpadeo del botón
-        boton.userData.colorOriginal = boton.material.color.clone();
-        boton.material.color.setHex(0xffffff);
-        setTimeout(() => {
-            if (boton.material && boton.userData.colorOriginal) {
-                boton.material.color.copy(boton.userData.colorOriginal);
-            }
-        }, 200);
     }
 
     // ==========================================
-    // CREAR SLIDER
+    // CREAR SLIDER (recibe grupoPadre como primer parámetro)
     // ==========================================
-    crearSlider(x, y, z, tipo, etiqueta, color, min, max, valorInicial, rotY) {
+    crearSlider(grupoPadre, x, y, z, tipo, etiqueta, color, min, max, valorInicial, rotY) {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
         grupo.rotation.y = rotY || 0;
         grupo.userData.esSliderVR = true;
         grupo.userData.tipo = tipo;
 
+        // Carril
         const carril = new THREE.Mesh(
             new THREE.BoxGeometry(0.5, 0.015, 0.015),
             new THREE.MeshStandardMaterial({ color: 0x333333 })
         );
         grupo.add(carril);
 
+        // Riel
         const riel = new THREE.Mesh(
             new THREE.BoxGeometry(0.52, 0.03, 0.03),
             new THREE.MeshStandardMaterial({ color: 0x555555 })
@@ -348,14 +353,15 @@ class Escena3D {
         perilla.userData.valorMesh = valorMesh;
         perilla.userData.canvasVal = canvasVal;
 
+        // Añadir al grupo padre que se pasa por parámetro
+        grupoPadre.add(grupo);
         this.slidersVR.push(perilla);
-        return grupo;
     }
 
     // ==========================================
     // CREAR BOTÓN CICLICO
     // ==========================================
-    crearBotonCiclico(x, y, z, tipo, etiqueta, valorInicial, opciones, indiceInicial, rotY) {
+    crearBotonCiclico(grupoPadre, x, y, z, tipo, etiqueta, valorInicial, opciones, indiceInicial, rotY) {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
         grupo.rotation.y = rotY || 0;
@@ -364,18 +370,13 @@ class Escena3D {
         grupo.userData.opciones = opciones;
         grupo.userData.indice = indiceInicial;
 
-        // Caja
         const caja = new THREE.Mesh(
             new THREE.BoxGeometry(0.4, 0.15, 0.05),
             new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.7, roughness: 0.4 })
         );
         caja.userData.esBotonCiclico = true;
-        caja.userData.tipoBoton = tipo;
-        caja.userData.opciones = opciones;
-        caja.userData.indice = indiceInicial;
         grupo.add(caja);
 
-        // Textura del texto
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
@@ -397,12 +398,8 @@ class Escena3D {
         );
         textoMesh.position.set(0, 0, 0.028);
         textoMesh.userData.esBotonCiclico = true;
-        textoMesh.userData.tipoBoton = tipo;
-        textoMesh.userData.opciones = opciones;
-        textoMesh.userData.indice = indiceInicial;
         grupo.add(textoMesh);
 
-        // Etiqueta
         const canvasEt = document.createElement('canvas');
         canvasEt.width = 512;
         canvasEt.height = 64;
@@ -422,43 +419,17 @@ class Escena3D {
         etiquetaMesh.position.set(0, 0.11, 0.028);
         grupo.add(etiquetaMesh);
 
-        // UserData
         grupo.userData.textoMesh = textoMesh;
         grupo.userData.textura = textura;
-        grupo.userData.canvasCtx = ctx;
 
+        grupoPadre.add(grupo);
         this.botonesCiclicos.push(grupo);
-        return grupo;
-    }
-
-    actualizarTextoBoton(boton, texto) {
-        const ctx = boton.userData.canvasCtx || boton.userData.textoMesh.userData.canvasCtx;
-        const textura = boton.userData.textura;
-
-        // Si no tiene las referencias en el grupo, buscar en el mesh de texto
-        const tm = boton.userData.textoMesh;
-        if (tm) {
-            const texturaTm = tm.material.map;
-            const canvas = texturaTm.image;
-            const ctxTm = canvas.getContext('2d');
-            ctxTm.fillStyle = 'rgba(0,0,0,0.7)';
-            ctxTm.fillRect(0, 0, 512, 128);
-            ctxTm.strokeStyle = '#4ecca3';
-            ctxTm.lineWidth = 6;
-            ctxTm.strokeRect(6, 6, 500, 116);
-            ctxTm.fillStyle = '#ffffff';
-            ctxTm.font = 'bold 52px sans-serif';
-            ctxTm.textAlign = 'center';
-            ctxTm.textBaseline = 'middle';
-            ctxTm.fillText(texto, 256, 64);
-            texturaTm.needsUpdate = true;
-        }
     }
 
     // ==========================================
     // CREAR BOTÓN DE ACCIÓN
     // ==========================================
-    crearBotonAccion(x, y, z, accion, etiqueta, color, rotY) {
+    crearBotonAccion(grupoPadre, x, y, z, accion, etiqueta, color, rotY) {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
         grupo.rotation.y = rotY || 0;
@@ -466,7 +437,7 @@ class Escena3D {
         grupo.userData.accion = accion;
 
         const caja = new THREE.Mesh(
-            new THREE.BoxGeometry(0.6, 0.22, 0.06),
+            new THREE.BoxGeometry(0.55, 0.22, 0.06),
             new THREE.MeshStandardMaterial({
                 color: color,
                 metalness: 0.6,
@@ -476,10 +447,8 @@ class Escena3D {
             })
         );
         caja.userData.esBotonAccion = true;
-        caja.userData.accion = accion;
         grupo.add(caja);
 
-        // Texto
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 128;
@@ -487,31 +456,28 @@ class Escena3D {
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.fillRect(0, 0, 512, 128);
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 48px sans-serif';
+        ctx.font = 'bold 40px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(etiqueta, 256, 64);
         const textura = new THREE.CanvasTexture(canvas);
         const textoMesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.6, 0.22),
+            new THREE.PlaneGeometry(0.55, 0.22),
             new THREE.MeshBasicMaterial({ map: textura, transparent: true })
         );
         textoMesh.position.set(0, 0, 0.035);
         textoMesh.userData.esBotonAccion = true;
-        textoMesh.userData.accion = accion;
         grupo.add(textoMesh);
 
-        // Zona de colisión invisible más grande
         const zonaColision = new THREE.Mesh(
-            new THREE.BoxGeometry(0.7, 0.3, 0.15),
+            new THREE.BoxGeometry(0.65, 0.3, 0.15),
             new THREE.MeshBasicMaterial({ visible: false })
         );
         zonaColision.userData.esBotonAccion = true;
-        zonaColision.userData.accion = accion;
         grupo.add(zonaColision);
 
+        grupoPadre.add(grupo);
         this.botonesAccion.push(zonaColision);
-        return grupo;
     }
 
     // ==========================================
@@ -531,8 +497,7 @@ class Escena3D {
             new THREE.PlaneGeometry(1.6, 0.4),
             new THREE.MeshBasicMaterial({ map: this.texturaPantallaValores })
         );
-        // Borde frontal de la mesa
-        pantalla.position.set(0, 0.92, 0.45);
+        pantalla.position.set(0, 0.95, 0.43);
         pantalla.rotation.x = -Math.PI / 4;
         grupo.add(pantalla);
     }
@@ -542,11 +507,6 @@ class Escena3D {
         if (!ctx) return;
 
         const r = estado.resultado;
-        if (!r) {
-            ctx.fillStyle = '#0a0f0a';
-            ctx.fillRect(0, 0, 1024, 256);
-            return;
-        }
 
         ctx.fillStyle = '#0a0f0a';
         ctx.fillRect(0, 0, 1024, 256);
@@ -554,19 +514,21 @@ class Escena3D {
         ctx.lineWidth = 3;
         ctx.strokeRect(6, 6, 1012, 244);
 
-        // Título
         ctx.fillStyle = '#00ff88';
         ctx.font = 'bold 22px monospace';
         ctx.textAlign = 'center';
         ctx.fillText('MEDICIONES', 512, 30);
 
-        // Columnas: izquierda = ideal, derecha = realista
+        if (!r) {
+            this.texturaPantallaValores.needsUpdate = true;
+            return;
+        }
+
         ctx.textAlign = 'left';
         ctx.font = 'bold 18px monospace';
 
         const colorTemp = estado.temperatura > 200 ? '#ff3333' : estado.temperatura > 100 ? '#ffaa00' : '#00ff88';
 
-        // Etiquetas
         ctx.fillStyle = '#66ccff';
         ctx.fillText('⚙️ IDEAL', 30, 65);
         ctx.fillStyle = '#ff8c00';
@@ -575,21 +537,18 @@ class Escena3D {
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 16px monospace';
 
-        // Valores ideal
         ctx.fillText(`V: ${r.V.toFixed(2)} V`, 30, 95);
         ctx.fillText(`B: ${r.B_ideal.toFixed(4)} T`, 30, 118);
         ctx.fillText(`F: ${r.F_ideal.toFixed(2)} N`, 30, 141);
         ctx.fillText(`Peso máx: ${r.m_max_ideal.toFixed(2)} kg`, 30, 164);
         ctx.fillText(`Saturación: ${r.saturado ? 'SÍ ⚠️' : 'No'}`, 30, 187);
 
-        // Valores realistas
         ctx.fillStyle = '#ff8c00';
         ctx.fillText(`B: ${r.B_real.toExponential(3)} T`, 530, 95);
         ctx.fillText(`F: ${r.F_real.toExponential(3)} N`, 530, 118);
         ctx.fillText(`Peso máx: ${(r.m_max_real * 1000).toFixed(3)} g`, 530, 141);
         ctx.fillText(`Factor k: ${r.k.toFixed(4)}`, 530, 164);
 
-        // Temperatura en el centro
         ctx.fillStyle = colorTemp;
         ctx.font = 'bold 20px monospace';
         ctx.textAlign = 'center';
@@ -604,7 +563,6 @@ class Escena3D {
     crearPanelA_Sliders() {
         const grupo = this.grupoPanelA;
 
-        // Panel base
         const panel = new THREE.Mesh(
             new THREE.BoxGeometry(0.9, 1.1, 0.05),
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.4 })
@@ -619,7 +577,6 @@ class Escena3D {
         borde.position.set(0, 1.5, -1.42);
         grupo.add(borde);
 
-        // Título
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
         canvasTitulo.height = 128;
@@ -630,7 +587,7 @@ class Escena3D {
         ctxT.font = 'bold 48px sans-serif';
         ctxT.textAlign = 'center';
         ctxT.textBaseline = 'middle';
-        ctxT.fillText('DISEÑO BOBINA', 256, 64);
+        ctxT.fillText('DISEÑO', 256, 64);
         const texT = new THREE.CanvasTexture(canvasTitulo);
         const titulo = new THREE.Mesh(
             new THREE.PlaneGeometry(0.7, 0.15),
@@ -639,11 +596,10 @@ class Escena3D {
         titulo.position.set(0, 2.0, -1.36);
         grupo.add(titulo);
 
-        // Sliders
-        grupo.add(this.crearSlider(0, 1.82, -1.36, 'longitud', 'LONGITUD (cm)', 0x4ecca3, 2, 30, estado.longitud, 0));
-        grupo.add(this.crearSlider(0, 1.62, -1.36, 'diametro', 'DIÁMETRO (cm)', 0x4ecca3, 1, 15, estado.diametro, 0));
-        grupo.add(this.crearSlider(0, 1.42, -1.36, 'vueltas', 'VUELTAS', 0x4ecca3, 10, 3000, estado.vueltas, 0));
-        grupo.add(this.crearSlider(0, 1.22, -1.36, 'corriente', 'CORRIENTE (A)', 0xff3333, 0, 30, estado.corriente, 0));
+        this.crearSlider(grupo, 0, 1.82, -1.36, 'longitud', 'LONGITUD (cm)', 0x4ecca3, 2, 30, estado.longitud, 0);
+        this.crearSlider(grupo, 0, 1.62, -1.36, 'diametro', 'DIÁMETRO (cm)', 0x4ecca3, 1, 15, estado.diametro, 0);
+        this.crearSlider(grupo, 0, 1.42, -1.36, 'vueltas', 'VUELTAS', 0x4ecca3, 10, 3000, estado.vueltas, 0);
+        this.crearSlider(grupo, 0, 1.22, -1.36, 'corriente', 'CORRIENTE (A)', 0xff3333, 0, 30, estado.corriente, 0);
     }
 
     // ==========================================
@@ -668,7 +624,6 @@ class Escena3D {
         borde.rotation.y = Math.PI / 3;
         grupo.add(borde);
 
-        // Título
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
         canvasTitulo.height = 128;
@@ -689,13 +644,13 @@ class Escena3D {
         titulo.rotation.y = Math.PI / 3;
         grupo.add(titulo);
 
-        // Botones cicladores
-        const b1 = this.crearBotonCiclico(-1.42, 1.82, 0.08, 'awg', 'CALIBRE (AWG)', 'AWG ' + estado.awg, [10, 12, 14, 16, 18, 20, 22, 24, 26, 28], 5, Math.PI / 3);
-        grupo.add(b1);
-        const b2 = this.crearBotonCiclico(-1.42, 1.55, 0.08, 'nucleo', 'NÚCLEO', estado.nucleo.toUpperCase(), ['aire', 'hierro', 'ferrita', 'silicio', 'permalloy'], 1, Math.PI / 3);
-        grupo.add(b2);
-        const b3 = this.crearBotonCiclico(-1.42, 1.28, 0.08, 'forma', 'FORMA', estado.forma.toUpperCase(), ['barra', 'u', 'toroidal', 'aire'], 0, Math.PI / 3);
-        grupo.add(b3);
+        const indiceAwg = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28].indexOf(estado.awg);
+        const indiceNucleo = ['aire', 'hierro', 'ferrita', 'silicio', 'permalloy'].indexOf(estado.nucleo);
+        const indiceForma = ['barra', 'u', 'toroidal', 'aire'].indexOf(estado.forma);
+
+        this.crearBotonCiclico(grupo, -1.42, 1.82, 0.08, 'awg', 'CALIBRE (AWG)', 'AWG ' + estado.awg, [10, 12, 14, 16, 18, 20, 22, 24, 26, 28], indiceAwg >= 0 ? indiceAwg : 5, Math.PI / 3);
+        this.crearBotonCiclico(grupo, -1.42, 1.55, 0.08, 'nucleo', 'NÚCLEO', estado.nucleo.toUpperCase(), ['aire', 'hierro', 'ferrita', 'silicio', 'permalloy'], indiceNucleo >= 0 ? indiceNucleo : 1, Math.PI / 3);
+        this.crearBotonCiclico(grupo, -1.42, 1.28, 0.08, 'forma', 'FORMA', estado.forma.toUpperCase(), ['barra', 'u', 'toroidal', 'aire'], indiceForma >= 0 ? indiceForma : 0, Math.PI / 3);
     }
 
     // ==========================================
@@ -720,7 +675,6 @@ class Escena3D {
         borde.rotation.y = -Math.PI / 3;
         grupo.add(borde);
 
-        // Título
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
         canvasTitulo.height = 128;
@@ -741,11 +695,8 @@ class Escena3D {
         titulo.rotation.y = -Math.PI / 3;
         grupo.add(titulo);
 
-        // Botones
-        const b1 = this.crearBotonAccion(1.42, 1.75, 0.08, 'guardar', '💾 GUARDAR WORD', 0x4ecca3, -Math.PI / 3);
-        grupo.add(b1);
-        const b2 = this.crearBotonAccion(1.42, 1.45, 0.08, 'equipar', '🏗️ EQUIPAR GRÚA', 0xffcc00, -Math.PI / 3);
-        grupo.add(b2);
+        this.crearBotonAccion(grupo, 1.42, 1.75, 0.08, 'guardar', '💾 GUARDAR', 0x4ecca3, -Math.PI / 3);
+        this.crearBotonAccion(grupo, 1.42, 1.45, 0.08, 'equipar', '🏗️ EQUIPAR', 0xffcc00, -Math.PI / 3);
     }
 
     // ==========================================
@@ -768,7 +719,6 @@ class Escena3D {
         borde.position.set(0, 1.5, -1.42);
         grupo.add(borde);
 
-        // Título
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
         canvasTitulo.height = 128;
@@ -776,7 +726,7 @@ class Escena3D {
         ctxT.fillStyle = 'rgba(0,0,0,0)';
         ctxT.fillRect(0, 0, 512, 128);
         ctxT.fillStyle = '#ffcc00';
-        ctxT.font = 'bold 48px sans-serif';
+        ctxT.font = 'bold 44px sans-serif';
         ctxT.textAlign = 'center';
         ctxT.textBaseline = 'middle';
         ctxT.fillText('CONTROL GRÚA', 256, 64);
@@ -788,11 +738,10 @@ class Escena3D {
         titulo.position.set(0, 2.0, -1.36);
         grupo.add(titulo);
 
-        // Sliders de grúa
-        grupo.add(this.crearSlider(0, 1.82, -1.36, 'potencia', 'POTENCIA (A)', 0xff3333, 0, 30, estado.corriente, 0));
-        grupo.add(this.crearSlider(0, 1.62, -1.36, 'rotacion', 'ROTACIÓN', 0x33aaff, 0, 360, 0, 0));
-        grupo.add(this.crearSlider(0, 1.42, -1.36, 'extension', 'EXTENSIÓN', 0x33ff33, 0.2, 2.0, 1.0, 0));
-        grupo.add(this.crearSlider(0, 1.22, -1.36, 'elevacion', 'ELEVACIÓN', 0xffcc00, -1, 1, 0, 0));
+        this.crearSlider(grupo, 0, 1.82, -1.36, 'potencia', 'POTENCIA (A)', 0xff3333, 0, 30, estado.corriente, 0);
+        this.crearSlider(grupo, 0, 1.62, -1.36, 'rotacion', 'ROTACIÓN', 0x33aaff, 0, 360, 0, 0);
+        this.crearSlider(grupo, 0, 1.42, -1.36, 'extension', 'EXTENSIÓN', 0x33ff33, 0.2, 2.0, 1.0, 0);
+        this.crearSlider(grupo, 0, 1.22, -1.36, 'elevacion', 'ELEVACIÓN', 0xffcc00, -1, 1, 0, 0);
     }
 
     // ==========================================
@@ -817,7 +766,6 @@ class Escena3D {
         borde.rotation.y = Math.PI / 3;
         grupo.add(borde);
 
-        // Título
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
         canvasTitulo.height = 128;
@@ -838,11 +786,8 @@ class Escena3D {
         titulo.rotation.y = Math.PI / 3;
         grupo.add(titulo);
 
-        // Botones
-        const b1 = this.crearBotonAccion(-1.42, 1.75, 0.08, 'soltar', '🔓 SOLTAR PESO', 0xff3333, Math.PI / 3);
-        grupo.add(b1);
-        const b2 = this.crearBotonAccion(-1.42, 1.45, 0.08, 'volver', '↩️ VOLVER LAB', 0x4ecca3, Math.PI / 3);
-        grupo.add(b2);
+        this.crearBotonAccion(grupo, -1.42, 1.75, 0.08, 'soltar', '🔓 SOLTAR', 0xff3333, Math.PI / 3);
+        this.crearBotonAccion(grupo, -1.42, 1.45, 0.08, 'volver', '↩️ VOLVER', 0x4ecca3, Math.PI / 3);
     }
 
     // ==========================================
@@ -867,7 +812,6 @@ class Escena3D {
         borde.rotation.y = -Math.PI / 3;
         grupo.add(borde);
 
-        // Canvas de valores de la grúa
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 512;
@@ -888,7 +832,6 @@ class Escena3D {
         const ctx = this.ctxPanelF;
         if (!ctx) return;
 
-        const r = estado.resultado;
         ctx.fillStyle = '#0a0f0a';
         ctx.fillRect(0, 0, 512, 512);
         ctx.strokeStyle = '#00ff88';
@@ -900,7 +843,11 @@ class Escena3D {
         ctx.textAlign = 'center';
         ctx.fillText('GRÚA', 256, 45);
 
-        if (!r) return;
+        const r = estado.resultado;
+        if (!r) {
+            this.texturaPanelF.needsUpdate = true;
+            return;
+        }
 
         ctx.textAlign = 'left';
         ctx.font = 'bold 22px monospace';
@@ -911,6 +858,7 @@ class Escena3D {
         ctx.fillText('B:', 30, 190);
         ctx.fillText('PESO MÁX:', 30, 235);
         ctx.fillText('TEMP:', 30, 280);
+        ctx.fillText('FUERZA:', 30, 325);
 
         const colorTemp = estado.temperatura > 200 ? '#ff3333' : estado.temperatura > 100 ? '#ffaa00' : '#00ff88';
 
@@ -922,6 +870,10 @@ class Escena3D {
         ctx.fillText(`${(r.m_max_real * 1000).toFixed(2)} g`, 480, 235);
         ctx.fillStyle = colorTemp;
         ctx.fillText(`${estado.temperatura.toFixed(0)} °C`, 480, 280);
+        ctx.fillStyle = '#ff8c00';
+        ctx.fillText(`${r.F_real.toExponential(2)} N`, 480, 325);
+
+        this.texturaPanelF.needsUpdate = true;
     }
 
     // ==========================================
@@ -1875,7 +1827,6 @@ class Escena3D {
             this.grupoExplosion.visible = true;
             this.grupoPantallaValores.visible = true;
 
-            // Paneles de diseño visibles, de grúa ocultos
             this.grupoPanelA.visible = true;
             this.grupoPanelB.visible = true;
             this.grupoPanelC.visible = true;
@@ -1916,7 +1867,6 @@ class Escena3D {
             this.grupoExplosion.visible = false;
             this.grupoPantallaValores.visible = false;
 
-            // Paneles de diseño ocultos, de grúa visibles
             this.grupoPanelA.visible = false;
             this.grupoPanelB.visible = false;
             this.grupoPanelC.visible = false;
@@ -1998,7 +1948,7 @@ class Escena3D {
             l.material.opacity = 0.35 + 0.2 * Math.sin(this.tiempo * 2 + i);
         });
 
-        // Actualizar sliders VR si están activos
+        // Actualizar sliders VR
         if (this.sliderActivo && this.renderer.xr.isPresenting) {
             for (const controller of this.controllers) {
                 this.raycasterVR.setFromXRController(controller);
@@ -2010,21 +1960,20 @@ class Escena3D {
                     const min = this.sliderActivo.userData.min;
                     const max = this.sliderActivo.userData.max;
                     const valorNuevo = min + t * (max - min);
-                    this.actualizarSlider(this.sliderActivo, valorNuevo);
+                    this.actualizarSliderVR(this.sliderActivo, valorNuevo);
                 }
             }
         }
 
         this.controls.update();
 
-        // Actualizar pantallas
         this.dibujarPantallaValores();
         if (this.modo === 'grua') this.dibujarPanelF();
 
         this.renderer.render(this.scene, this.camera);
     }
 
-    actualizarSlider(perilla, valorNuevo) {
+    actualizarSliderVR(perilla, valorNuevo) {
         const min = perilla.userData.min;
         const max = perilla.userData.max;
         const valorClamp = Math.max(min, Math.min(max, valorNuevo));
@@ -2063,14 +2012,12 @@ class Escena3D {
             if (el) el.value = valorClamp;
             const elv = document.getElementById('vueltas-val');
             if (elv) elv.textContent = Math.round(valorClamp);
-        } else if (tipo === 'corriente') {
+        } else if (tipo === 'corriente' || tipo === 'potencia') {
             estado.corriente = valorClamp;
             const el = document.getElementById('corriente');
             if (el) el.value = valorClamp;
             const elv = document.getElementById('corriente-val');
             if (elv) elv.textContent = valorClamp.toFixed(1);
-        } else if (tipo === 'potencia') {
-            estado.corriente = valorClamp;
         } else if (tipo === 'rotacion' && typeof grua !== 'undefined' && grua) {
             grua.rotacion = valorClamp;
             grua.actualizarPosiciones();
@@ -2080,6 +2027,7 @@ class Escena3D {
         } else if (tipo === 'elevacion' && typeof grua !== 'undefined' && grua) {
             grua.control = valorClamp;
         }
+
         if (typeof actualizarTodo === 'function') actualizarTodo();
     }
 
