@@ -337,7 +337,26 @@ window.addEventListener('load', () => {
     document.getElementById('btn-guardar').addEventListener('click', () => {
         if (estado.resultado) generarInforme(estado, estado.resultado);
     });
+    window.equiparGrua = function() {
+    if (!estado.resultado) return;
+    estado.modo = 'grua';
+    estado.equipada = true;
+    escena.crearEntornoIndustrial();
+    grua.equipar(estado, estado.resultado);
+    escena.cambiarAmbiente('grua');
+    document.getElementById('panel-grua-flotante').classList.add('visible');
+    console.log("🏗️ Modo grúa activado desde VR");
+};
 
+window.volverDiseno = function() {
+    estado.modo = 'diseno';
+    estado.equipada = false;
+    if (grua) grua.soltarPeso();
+    escena.cambiarAmbiente('diseno');
+    document.getElementById('panel-grua-flotante').classList.remove('visible');
+    actualizarTodo();
+    console.log("📐 Modo diseño activado desde VR");
+};
     document.getElementById('btn-equipar').addEventListener('click', () => {
         if (!estado.resultado) return;
         estado.modo = 'grua';
