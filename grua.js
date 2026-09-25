@@ -15,7 +15,7 @@ class GruaElectromagnetica {
 
         this.electroimanY = 1.5;
         this.electroimanYMax = 2.0;
-        this.electroimanYMin = 0.15;
+        this.electroimanYMin = 0.3;   // ✅ antes 0.15
 
         this.posBase = new THREE.Vector3(1.5, 0, 2.5);
     }
@@ -38,7 +38,7 @@ class GruaElectromagnetica {
         grupo.position.copy(this.posBase);
 
         // ==========================================
-        // BASE GRANDE Y PESADA (tipo deshuesadero)
+        // BASE GRANDE Y PESADA
         // ==========================================
         const baseGrande = new THREE.Mesh(
             new THREE.BoxGeometry(0.7, 0.15, 0.9),
@@ -48,7 +48,6 @@ class GruaElectromagnetica {
         baseGrande.castShadow = true;
         grupo.add(baseGrande);
 
-        // Detalle superior de la base
         const baseSuperior = new THREE.Mesh(
             new THREE.BoxGeometry(0.5, 0.1, 0.7),
             new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.8, roughness: 0.4 })
@@ -57,7 +56,6 @@ class GruaElectromagnetica {
         baseSuperior.castShadow = true;
         grupo.add(baseSuperior);
 
-        // Franjas amarillas (estilo industrial)
         for (let i = -1; i <= 1; i++) {
             const franja = new THREE.Mesh(
                 new THREE.BoxGeometry(0.52, 0.02, 0.08),
@@ -78,7 +76,6 @@ class GruaElectromagnetica {
         mastil.castShadow = true;
         grupo.add(mastil);
 
-        // Detalles del mástil (agujeros)
         for (let i = 0; i < 5; i++) {
             const circulo = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.03, 0.03, 0.14, 12),
@@ -90,13 +87,12 @@ class GruaElectromagnetica {
         }
 
         // ==========================================
-        // BRAZO HORIZONTAL (en forma de L)
+        // BRAZO HORIZONTAL
         // ==========================================
         this.brazoGrupo = new THREE.Group();
         this.brazoGrupo.position.y = 2.0;
         grupo.add(this.brazoGrupo);
 
-        // Brazo principal (horizontal, largo)
         const brazoHorizontal = new THREE.Mesh(
             new THREE.BoxGeometry(2.5, 0.12, 0.12),
             new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.7, roughness: 0.3 })
@@ -105,7 +101,6 @@ class GruaElectromagnetica {
         brazoHorizontal.castShadow = true;
         this.brazoGrupo.add(brazoHorizontal);
 
-        // Refuerzo en diagonal
         const refuerzoDiag = new THREE.Mesh(
             new THREE.BoxGeometry(0.7, 0.06, 0.06),
             new THREE.MeshStandardMaterial({ color: 0xffaa00, metalness: 0.7, roughness: 0.3 })
@@ -114,7 +109,6 @@ class GruaElectromagnetica {
         refuerzoDiag.rotation.z = Math.PI / 4;
         this.brazoGrupo.add(refuerzoDiag);
 
-        // Contrapeso
         const contrapeso = new THREE.Mesh(
             new THREE.BoxGeometry(0.35, 0.35, 0.35),
             new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.9, roughness: 0.4 })
@@ -123,7 +117,6 @@ class GruaElectromagnetica {
         contrapeso.castShadow = true;
         this.brazoGrupo.add(contrapeso);
 
-        // Tope al final del brazo
         const tope = new THREE.Mesh(
             new THREE.BoxGeometry(0.15, 0.2, 0.2),
             new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.3 })
@@ -140,21 +133,18 @@ class GruaElectromagnetica {
         );
         this.brazoGrupo.add(this.cable);
 
-        // Electroimán tipo disco (como el de los deshuesaderos)
         this.electroiman = new THREE.Mesh(
             new THREE.CylinderGeometry(0.18, 0.18, 0.1, 32),
             new THREE.MeshStandardMaterial({ color: 0x8a8a8a, metalness: 0.9, roughness: 0.3 })
         );
         this.brazoGrupo.add(this.electroiman);
 
-        // Borde naranja del electroimán (detalle)
         const bordeElectro = new THREE.Mesh(
             new THREE.CylinderGeometry(0.19, 0.19, 0.03, 32),
             new THREE.MeshStandardMaterial({ color: 0xff8a00, metalness: 0.7, roughness: 0.4, emissive: 0x331100 })
         );
         this.brazoGrupo.add(bordeElectro);
 
-        // Bobinita visible arriba del electroimán
         const bobinita = new THREE.Mesh(
             new THREE.CylinderGeometry(0.12, 0.12, 0.08, 20),
             new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.9, roughness: 0.3 })
@@ -242,21 +232,27 @@ class GruaElectromagnetica {
         return pos;
     }
 
+    // ✅ FIX: intentarLevantar con coordenadas del grupo GRÚA correctamente
     intentarLevantar() {
-        if (this.pesoAdherido) return;
+        if (this.pesoAdherido) return false;
+        if (!this.resultado) return false;
         const fuerzaActual = this.resultado.F_real;
-        if (fuerzaActual <= 0) return;
+        if (fuerzaActual <= 0) return false;
 
-        const posElectro = this.getPosicionElectroiman();
-        const posLocal = posElectro.clone().sub(this.posBase);
-        if (posLocal.y > 0.5) return;
+        // Convertir posición del electroimán a coordenadas LOCALES del grupo grúa
+        const posElectroGrua = new THREE.Vector3();
+        this.electroiman.getWorldPosition(posElectroGrua);
+        this.escena.grupoGrua.worldToLocal(posElectroGrua);
+
+        // Altura mínima para poder levantar
+        if (posElectroGrua.y > 0.8) return false;
 
         let masCercano = null;
         let distMin = Infinity;
         this.pesos.forEach(p => {
             if (p.userData.adherido) return;
-            const dx = p.position.x - posLocal.x;
-            const dz = p.position.z - posLocal.z;
+            const dx = p.position.x - posElectroGrua.x;
+            const dz = p.position.z - posElectroGrua.z;
             const dist = Math.sqrt(dx * dx + dz * dz);
             if (dist < distMin) {
                 distMin = dist;
@@ -264,11 +260,13 @@ class GruaElectromagnetica {
             }
         });
 
-        if (masCercano && distMin < 0.35) {
+        // ✅ Radio más generoso
+        if (masCercano && distMin < 0.6) {
             const pesoRequerido = masCercano.userData.kg * G;
             if (fuerzaActual >= pesoRequerido) {
                 this.pesoAdherido = masCercano;
                 masCercano.userData.adherido = true;
+                console.log(`🧲 Adherido: ${masCercano.userData.gramos}g`);
                 return true;
             }
         }
@@ -302,17 +300,19 @@ class GruaElectromagnetica {
             this.soltarPeso();
         }
 
+        // ✅ FIX: actualizar posición del peso adherido en coords del grupo grúa
         if (this.pesoAdherido && this.electroiman) {
-            const posElectro = this.getPosicionElectroiman();
-            const posLocal = posElectro.clone().sub(this.posBase);
-            const alturaPeso = posLocal.y - 0.05 - this.pesoAdherido.userData.tamaño / 2;
-            const alturaMinima = this.pesoAdherido.userData.tamaño / 2;
-            const alturaFinal = Math.max(alturaMinima, alturaPeso);
-            this.pesoAdherido.position.set(posLocal.x, alturaFinal, posLocal.z);
+            const posElectroGrua = new THREE.Vector3();
+            this.electroiman.getWorldPosition(posElectroGrua);
+            this.escena.grupoGrua.worldToLocal(posElectroGrua);
+
+            const alturaPeso = posElectroGrua.y - 0.1 - this.pesoAdherido.userData.tamaño / 2;
+            const alturaFinal = Math.max(0.05, alturaPeso);
+            this.pesoAdherido.position.set(posElectroGrua.x, alturaFinal, posElectroGrua.z);
             this.pesoAdherido.userData.etiqueta.position.set(
-                posLocal.x,
+                posElectroGrua.x,
                 alturaFinal + this.pesoAdherido.userData.tamaño / 2 + 0.2,
-                posLocal.z
+                posElectroGrua.z
             );
         }
     }

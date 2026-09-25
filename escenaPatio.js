@@ -52,6 +52,12 @@ class EscenaPatio {
         this.crearPanelE_GruaAcciones();
         this.crearPanelF_GruaValores();
 
+        // ✅ FIX: posicionar los paneles frente a la cámara del patio
+        // (la cámara en el patio mira hacia +Z desde la parte trasera)
+        this.grupoPanelD.position.set(0, 1.6, 4.0);
+        this.grupoPanelE.position.set(-1.8, 1.6, 4.0);
+        this.grupoPanelF.position.set(1.8, 1.6, 4.0);
+
         this.ocultar();
     }
 
@@ -162,21 +168,22 @@ class EscenaPatio {
     crearPanelF_GruaValores() {
         const grupo = this.grupoPanelF;
 
+        const panelContenedor = new THREE.Group();
+        panelContenedor.rotation.y = -Math.PI / 3;
+        grupo.add(panelContenedor);
+
         const panel = new THREE.Mesh(
             new THREE.BoxGeometry(0.7, 1.1, 0.05),
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.4 })
         );
-        panel.position.set(1.5, 1.5, 0);
-        panel.rotation.y = -Math.PI / 3;
-        grupo.add(panel);
+        panelContenedor.add(panel);
 
         const borde = new THREE.Mesh(
             new THREE.BoxGeometry(0.75, 1.15, 0.02),
             new THREE.MeshStandardMaterial({ color: 0x00ff88, metalness: 0.8, roughness: 0.3 })
         );
-        borde.position.set(1.5, 1.5, -0.02);
-        borde.rotation.y = -Math.PI / 3;
-        grupo.add(borde);
+        borde.position.set(0, 0, -0.02);
+        panelContenedor.add(borde);
 
         const canvas = document.createElement('canvas');
         canvas.width = 512;
@@ -189,9 +196,8 @@ class EscenaPatio {
             new THREE.PlaneGeometry(0.6, 0.9),
             new THREE.MeshBasicMaterial({ map: this.texturaPanelF })
         );
-        pantalla.position.set(1.42, 1.55, 0.05);
-        pantalla.rotation.y = -Math.PI / 3;
-        grupo.add(pantalla);
+        pantalla.position.set(0, 0.05, 0.05);
+        panelContenedor.add(pantalla);
     }
 
     dibujarPanelF() {
@@ -345,7 +351,6 @@ class EscenaPatio {
                 emissiveIntensity: 0.3
             })
         );
-        caja.userData.esBotonAccion = true;
         grupo.add(caja);
 
         const canvas = document.createElement('canvas');
@@ -365,36 +370,37 @@ class EscenaPatio {
             new THREE.MeshBasicMaterial({ map: textura, transparent: true })
         );
         textoMesh.position.set(0, 0, 0.035);
-        textoMesh.userData.esBotonAccion = true;
         grupo.add(textoMesh);
 
         const zonaColision = new THREE.Mesh(
             new THREE.BoxGeometry(0.65, 0.3, 0.15),
             new THREE.MeshBasicMaterial({ visible: false })
         );
-        zonaColision.userData.esBotonAccion = true;
         grupo.add(zonaColision);
 
         grupoPadre.add(grupo);
-        this.botonesAccion.push(zonaColision);
+        // ✅ Registramos el GRUPO (que tiene .accion)
+        this.botonesAccion.push(grupo);
     }
 
     crearPanelD_GruaSliders() {
         const grupo = this.grupoPanelD;
 
+        const panelContenedor = new THREE.Group();
+        grupo.add(panelContenedor);
+
         const panel = new THREE.Mesh(
             new THREE.BoxGeometry(0.9, 1.1, 0.05),
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.4 })
         );
-        panel.position.set(0, 1.5, -1.4);
-        grupo.add(panel);
+        panelContenedor.add(panel);
 
         const borde = new THREE.Mesh(
             new THREE.BoxGeometry(0.95, 1.15, 0.02),
             new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.8, roughness: 0.3 })
         );
-        borde.position.set(0, 1.5, -1.42);
-        grupo.add(borde);
+        borde.position.set(0, 0, -0.02);
+        panelContenedor.add(borde);
 
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
@@ -412,33 +418,35 @@ class EscenaPatio {
             new THREE.PlaneGeometry(0.7, 0.15),
             new THREE.MeshBasicMaterial({ map: texT, transparent: true })
         );
-        titulo.position.set(0, 2.0, -1.36);
-        grupo.add(titulo);
+        titulo.position.set(0, 0.5, 0.04);
+        panelContenedor.add(titulo);
 
-        this.crearSlider(grupo, 0, 1.82, -1.36, 'potencia', 'POTENCIA (A)', 0xff3333, 0, 30, estado.corriente, 0);
-        this.crearSlider(grupo, 0, 1.62, -1.36, 'rotacion', 'ROTACIÓN', 0x33aaff, 0, 360, 0, 0);
-        this.crearSlider(grupo, 0, 1.42, -1.36, 'extension', 'EXTENSIÓN', 0x33ff33, 0.2, 2.0, 1.0, 0);
-        this.crearSlider(grupo, 0, 1.22, -1.36, 'elevacion', 'ELEVACIÓN', 0xffcc00, -1, 1, 0, 0);
+        this.crearSlider(panelContenedor, 0, 0.32, 0.04, 'potencia', 'POTENCIA (A)', 0xff3333, 0, 30, estado.corriente, 0);
+        this.crearSlider(panelContenedor, 0, 0.12, 0.04, 'rotacion', 'ROTACIÓN', 0x33aaff, 0, 360, 0, 0);
+        this.crearSlider(panelContenedor, 0, -0.08, 0.04, 'extension', 'EXTENSIÓN', 0x33ff33, 0.2, 2.0, 1.0, 0);
+        this.crearSlider(panelContenedor, 0, -0.28, 0.04, 'elevacion', 'ELEVACIÓN', 0xffcc00, -1, 1, 0, 0);
     }
 
     crearPanelE_GruaAcciones() {
         const grupo = this.grupoPanelE;
 
+        // ✅ Group contenedor rotado
+        const panelContenedor = new THREE.Group();
+        panelContenedor.rotation.y = Math.PI / 3;
+        grupo.add(panelContenedor);
+
         const panel = new THREE.Mesh(
             new THREE.BoxGeometry(0.7, 1.1, 0.05),
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.4 })
         );
-        panel.position.set(-1.5, 1.5, 0);
-        panel.rotation.y = Math.PI / 3;
-        grupo.add(panel);
+        panelContenedor.add(panel);
 
         const borde = new THREE.Mesh(
             new THREE.BoxGeometry(0.75, 1.15, 0.02),
             new THREE.MeshStandardMaterial({ color: 0xff3333, metalness: 0.8, roughness: 0.3 })
         );
-        borde.position.set(-1.5, 1.5, -0.02);
-        borde.rotation.y = Math.PI / 3;
-        grupo.add(borde);
+        borde.position.set(0, 0, -0.02);
+        panelContenedor.add(borde);
 
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
@@ -456,12 +464,13 @@ class EscenaPatio {
             new THREE.PlaneGeometry(0.6, 0.15),
             new THREE.MeshBasicMaterial({ map: texT, transparent: true })
         );
-        titulo.position.set(-1.42, 2.0, 0.08);
-        titulo.rotation.y = Math.PI / 3;
-        grupo.add(titulo);
+        titulo.position.set(0, 0.5, 0.04);
+        panelContenedor.add(titulo);
 
-        this.crearBotonAccion(grupo, -1.42, 1.75, 0.08, 'soltar', '🔓 SOLTAR', 0xff3333, Math.PI / 3);
-        this.crearBotonAccion(grupo, -1.42, 1.45, 0.08, 'volver', '↩️ VOLVER', 0x4ecca3, Math.PI / 3);
+        // ✅ Botón SOLTAR (protagonista)
+        this.crearBotonAccion(panelContenedor, 0, 0.25, 0.04, 'soltar', '🔓 SOLTAR', 0xff3333, 0);
+        // ✅ Botón VOLVER
+        this.crearBotonAccion(panelContenedor, 0, -0.05, 0.04, 'volver', '↩️ VOLVER', 0x4ecca3, 0);
     }
 
     mostrar() {
