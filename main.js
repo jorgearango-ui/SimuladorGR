@@ -571,7 +571,7 @@ function onGatilloPresionado(controller) {
     if (escena && escena.slidersVR) todosLosSliders = todosLosSliders.concat(escena.slidersVR);
     if (escenaPatio && escenaPatio.slidersVR) todosLosSliders = todosLosSliders.concat(escenaPatio.slidersVR);
 
-    const intersectSliders = raycasterVR.intersectObjects(todosLosSliders, false);
+    const intersectSliders = raycasterVR.intersectObjects(todosLosSliders, true);
     if (intersectSliders.length > 0) {
         sliderVR_Activo = intersectSliders[0].object;
         return;
@@ -744,21 +744,31 @@ function loop(tiempo) {
     ultimoTiempoGrua = tiempo;
 
     if (sliderVR_Activo && renderer.xr.isPresenting) {
-        for (let i = 0; i < 2; i++) {
-            const controller = renderer.xr.getController(i);
-            raycasterVR.setFromXRController(controller);
-            const intersect = raycasterVR.intersectObject(sliderVR_Activo.userData.grupoPadre, true);
-            if (intersect.length > 0) {
-                const puntoInterseccion = intersect[0].point;
-                const local = sliderVR_Activo.userData.grupoPadre.worldToLocal(puntoInterseccion.clone());
-                const t = Math.max(0, Math.min(1, (local.x + 0.25) / 0.5));
-                const min = sliderVR_Activo.userData.min;
-                const max = sliderVR_Activo.userData.max;
-                const valorNuevo = min + t * (max - min);
-                actualizarSliderVR(sliderVR_Activo, valorNuevo);
-            }
+    for (let i = 0; i < 2; i++) {
+        const controller = renderer.xr.getController(i);
+        raycasterVR.setFromXRController(controller);
+        raycasterVR.far = 10;
+
+        // Detectar intersección con el CARRIL del slider (más grande que la perilla)
+        const intersect = raycasterVR.intersectObject(sliderVR_Activo.userData.grupoPadre, true);
+        if (intersect.length > 0) {
+            const puntoInterseccion = intersect[0].point;
+
+            // Transformar el punto del mundo al sistema local del grupo del slider
+            const puntoLocal = sliderVR_Activo.userData.grupoPadre.worldToLocal(puntoInterseccion.clone());
+
+            // La perilla se mueve entre -0.25 y 0.25 en X del grupo
+            const rangoLocal = 0.5; // -0.25 a 0.25
+            const t = Math.max(0, Math.min(1, (puntoLocal.x + 0.25) / rangoLocal));
+
+            const min = sliderVR_Activo.userData.min;
+            const max = sliderVR_Activo.userData.max;
+            const valorNuevo = min + t * (max - min);
+
+            actualizarSliderVR(sliderVR_Activo, valorNuevo);
         }
     }
+}
 
     if (escena && escena.controls) {
         escena.controls.update();
