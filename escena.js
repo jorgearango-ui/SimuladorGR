@@ -22,9 +22,7 @@ class Escena3D {
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-        // ============================================
-        // WEBXR: Habilitar soporte VR
-        // ============================================
+        // WEBXR
         this.renderer.xr.enabled = true;
         this.renderer.xr.setReferenceSpaceType('local-floor');
 
@@ -32,45 +30,34 @@ class Escena3D {
 
         this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
-        this.controls.target.set(0, 0.3, 0);
+        this.controls.target.set(0, 0.6, 0);
 
         this.raycaster = new THREE.Raycaster();
+        this.raycasterVR = new THREE.Raycaster();
 
-        // ============================================
-        // WEBXR: Controladores VR (mandos de Meta Quest)
-        // ============================================
+        // WEBXR: Controladores VR
         this.controllers = [];
-        for (let i = 0; i < 2; i++) {
-            const controller = this.renderer.xr.getController(i);
-            const rayo = new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints([
-                    new THREE.Vector3(0, 0, 0),
-                    new THREE.Vector3(0, 0, -3)
-                ]),
-                new THREE.LineBasicMaterial({ color: 0x4ecca3 })
-            );
-            controller.add(rayo);
-            this.scene.add(controller);
-            this.controllers.push(controller);
-        }
+        this.slidersVR = [];
+        this.sliderActivo = null;
+        this.crearControladoresVR();
 
         // Luces
         this.luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6);
         this.scene.add(this.luzAmbiente);
 
-        this.luzTecho = new THREE.PointLight(0xffeecc, 1.2, 3, 2);
-        this.luzTecho.position.set(0, 1.2, 0);
+        this.luzTecho = new THREE.PointLight(0xffeecc, 1.5, 6, 2);
+        this.luzTecho.position.set(0, 3.0, 0);
         this.scene.add(this.luzTecho);
 
         this.luzDir1 = new THREE.DirectionalLight(0xffffff, 0.8);
-        this.luzDir1.position.set(1, 2, 1);
+        this.luzDir1.position.set(1, 3, 1);
         this.luzDir1.castShadow = true;
         this.luzDir1.shadow.mapSize.width = 1024;
         this.luzDir1.shadow.mapSize.height = 1024;
-        this.luzDir1.shadow.camera.left = -2;
-        this.luzDir1.shadow.camera.right = 2;
-        this.luzDir1.shadow.camera.top = 2;
-        this.luzDir1.shadow.camera.bottom = -2;
+        this.luzDir1.shadow.camera.left = -3;
+        this.luzDir1.shadow.camera.right = 3;
+        this.luzDir1.shadow.camera.top = 3;
+        this.luzDir1.shadow.camera.bottom = -3;
         this.scene.add(this.luzDir1);
 
         this.luzDir2 = new THREE.DirectionalLight(0x88bbff, 0.3);
@@ -87,6 +74,7 @@ class Escena3D {
         this.grupoIndustrial = new THREE.Group();
         this.grupoCabina = new THREE.Group();
         this.grupoExplosion = new THREE.Group();
+        this.grupoPanelVR = new THREE.Group();
         this.scene.add(this.grupoLaboratorio);
         this.scene.add(this.grupoEscena);
         this.scene.add(this.grupoCampo);
@@ -96,6 +84,7 @@ class Escena3D {
         this.scene.add(this.grupoIndustrial);
         this.scene.add(this.grupoCabina);
         this.scene.add(this.grupoExplosion);
+        this.scene.add(this.grupoPanelVR);
 
         this.electrones = [];
         this.lineasCampo = [];
@@ -106,76 +95,377 @@ class Escena3D {
         this.formaActual = 'barra';
 
         this.crearLaboratorio();
+        this.crearPanelVR();
 
         // Loop VR
         this.renderer.setAnimationLoop(this.animate.bind(this));
     }
 
     // ==========================================
-    // LABORATORIO
+    // WEBXR: CONTROLADORES VR
+    // ==========================================
+    crearControladoresVR() {
+        for (let i = 0; i < 2; i++) {
+            const controller = this.renderer.xr.getController(i);
+
+            // Rayo visible
+            const rayoGeometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -5)
+            ]);
+            const rayoMat = new THREE.LineBasicMaterial({ color: 0x4ecca3 });
+            const rayo = new THREE.Line(rayoGeometry, rayoMat);
+            rayo.name = 'rayo';
+            controller.add(rayo);
+
+            // Punto en la punta del rayo
+            const punto = new THREE.Mesh(
+                new THREE.SphereGeometry(0.01, 8, 8),
+                new THREE.MeshBasicMaterial({ color: 0xffcc00 })
+            );
+            punto.position.set(0, 0, -1);
+            punto.name = 'punto';
+            controller.add(punto);
+
+            // Eventos del mando
+            controller.addEventListener('selectstart', () => this.onGatilloPresionado(controller));
+            controller.addEventListener('selectend', () => this.onGatilloSoltado(controller));
+
+            this.scene.add(controller);
+            this.controllers.push(controller);
+        }
+    }
+
+    onGatilloPresionado(controller) {
+        // Detectar si el rayo apunta a un slider
+        this.raycasterVR.setFromXRController(controller);
+        const puntos = [];
+        for (let i = 0; i <= 10; i++) {
+            puntos.push(new THREE.Vector3(0, 0, -i * 0.5));
+        }
+
+        const intersect = this.raycasterVR.intersectObjects(this.slidersVR, false);
+        if (intersect.length > 0) {
+            this.sliderActivo = intersect[0].object;
+            console.log('Slider activo:', this.sliderActivo.userData.tipo);
+        }
+    }
+
+    onGatilloSoltado(controller) {
+        this.sliderActivo = null;
+    }
+
+    // ==========================================
+    // PANEL DE CONTROL VR
+    // ==========================================
+    crearPanelVR() {
+        const grupo = this.grupoPanelVR;
+        while (grupo.children.length > 0) grupo.remove(grupo.children[0]);
+
+        // Panel base (placa grande)
+        const panel = new THREE.Mesh(
+            new THREE.BoxGeometry(1.2, 1.6, 0.05),
+            new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                metalness: 0.7,
+                roughness: 0.4
+            })
+        );
+        panel.position.set(-1.3, 1.4, 0.3);
+        panel.rotation.y = Math.PI / 6;
+        grupo.add(panel);
+
+        // Borde amarillo
+        const borde = new THREE.Mesh(
+            new THREE.BoxGeometry(1.25, 1.65, 0.02),
+            new THREE.MeshStandardMaterial({
+                color: 0xffcc00,
+                metalness: 0.8,
+                roughness: 0.3
+            })
+        );
+        borde.position.set(-1.3, 1.4, 0.28);
+        borde.rotation.y = Math.PI / 6;
+        grupo.add(borde);
+
+        // Pantalla digital en la parte superior
+        const canvasPantalla = document.createElement('canvas');
+        canvasPantalla.width = 512;
+        canvasPantalla.height = 256;
+        this.ctxPantallaVR = canvasPantalla.getContext('2d');
+        this.texturaPantallaVR = new THREE.CanvasTexture(canvasPantalla);
+        this.dibujarPantallaVR(0, 0, 0, 25);
+
+        const pantallaVR = new THREE.Mesh(
+            new THREE.PlaneGeometry(1.0, 0.5),
+            new THREE.MeshBasicMaterial({ map: this.texturaPantallaVR })
+        );
+        pantallaVR.position.set(-1.3, 1.85, 0.35);
+        pantallaVR.rotation.y = Math.PI / 6;
+        grupo.add(pantallaVR);
+
+        // Crear sliders
+        this.crearSliderVR(-1.3, 1.55, 0.33, 'potencia', 'POTENCIA', 0xff3333, 0, 30, 0);
+        this.crearSliderVR(-1.3, 1.35, 0.33, 'rotacion', 'ROTACIÓN', 0x33aaff, 0, 360, 0);
+        this.crearSliderVR(-1.3, 1.15, 0.33, 'extension', 'EXTENSIÓN', 0x33ff33, 0.2, 2.0, 1.0);
+        this.crearSliderVR(-1.3, 0.95, 0.33, 'elevacion', 'ELEVACIÓN', 0xffcc00, -1, 1, 0);
+    }
+
+    crearSliderVR(x, y, z, tipo, etiqueta, color, min, max, valorInicial) {
+        const grupo = new THREE.Group();
+        grupo.position.set(x, y, z);
+        grupo.rotation.y = Math.PI / 6;
+        grupo.userData.esSliderVR = true;
+        grupo.userData.tipo = tipo;
+        grupo.userData.min = min;
+        grupo.userData.max = max;
+        grupo.userData.valor = valorInicial;
+
+        // Carril del slider (línea base)
+        const carril = new THREE.Mesh(
+            new THREE.BoxGeometry(0.7, 0.015, 0.015),
+            new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        grupo.add(carril);
+
+        // Riel de fondo
+        const riel = new THREE.Mesh(
+            new THREE.BoxGeometry(0.72, 0.03, 0.03),
+            new THREE.MeshStandardMaterial({ color: 0x555555 })
+        );
+        riel.position.z = -0.01;
+        grupo.add(riel);
+
+        // Etiqueta de texto
+        const canvasEt = document.createElement('canvas');
+        canvasEt.width = 256;
+        canvasEt.height = 64;
+        const ctxEt = canvasEt.getContext('2d');
+        ctxEt.fillStyle = 'rgba(0,0,0,0)';
+        ctxEt.fillRect(0, 0, 256, 64);
+        ctxEt.fillStyle = '#ffcc00';
+        ctxEt.font = 'bold 32px sans-serif';
+        ctxEt.textAlign = 'left';
+        ctxEt.textBaseline = 'middle';
+        ctxEt.fillText(etiqueta, 10, 32);
+        const texEt = new THREE.CanvasTexture(canvasEt);
+        const etiquetaMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.35, 0.09),
+            new THREE.MeshBasicMaterial({ map: texEt, transparent: true })
+        );
+        etiquetaMesh.position.set(-0.3, 0.06, 0.02);
+        grupo.add(etiquetaMesh);
+
+        // Perilla del slider (lo que el usuario agarra)
+        const perilla = new THREE.Mesh(
+            new THREE.SphereGeometry(0.035, 16, 16),
+            new THREE.MeshStandardMaterial({
+                color: color,
+                metalness: 0.5,
+                roughness: 0.4,
+                emissive: color,
+                emissiveIntensity: 0.4
+            })
+        );
+        perilla.userData.esSliderVR = true;
+        perilla.userData.tipo = tipo;
+        perilla.userData.min = min;
+        perilla.userData.max = max;
+        perilla.userData.valor = valorInicial;
+        perilla.userData.grupoPadre = grupo;
+        perilla.userData.carril = carril;
+
+        // Posición inicial según el valor
+        const rango = max - min;
+        const t = rango > 0 ? (valorInicial - min) / rango : 0;
+        perilla.position.set(-0.35 + t * 0.7, 0, 0);
+
+        grupo.add(perilla);
+
+        // Guardar referencia
+        this.slidersVR.push(perilla);
+
+        // Valor numérico
+        const canvasVal = document.createElement('canvas');
+        canvasVal.width = 128;
+        canvasVal.height = 64;
+        const ctxVal = canvasVal.getContext('2d');
+        ctxVal.fillStyle = 'rgba(0,0,0,0)';
+        ctxVal.fillRect(0, 0, 128, 64);
+        ctxVal.fillStyle = '#ffffff';
+        ctxVal.font = 'bold 28px monospace';
+        ctxVal.textAlign = 'center';
+        ctxVal.textBaseline = 'middle';
+        ctxVal.fillText(valorInicial.toFixed(1), 64, 32);
+        const texVal = new THREE.CanvasTexture(canvasVal);
+        const valorMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.15, 0.075),
+            new THREE.MeshBasicMaterial({ map: texVal, transparent: true })
+        );
+        valorMesh.position.set(0.32, 0.06, 0.02);
+        valorMesh.userData.esValorSlider = true;
+        grupo.add(valorMesh);
+        perilla.userData.valorMesh = valorMesh;
+        perilla.userData.canvasVal = canvasVal;
+
+        this.grupoPanelVR.add(grupo);
+    }
+
+    actualizarSliderVR(perilla, valorNuevo) {
+        const min = perilla.userData.min;
+        const max = perilla.userData.max;
+        const valorClamp = Math.max(min, Math.min(max, valorNuevo));
+
+        perilla.userData.valor = valorClamp;
+
+        // Actualizar posición visual
+        const rango = max - min;
+        const t = rango > 0 ? (valorClamp - min) / rango : 0;
+        perilla.position.x = -0.35 + t * 0.7;
+
+        // Actualizar texto del valor
+        const ctxVal = perilla.userData.canvasVal.getContext('2d');
+        ctxVal.clearRect(0, 0, 128, 64);
+        ctxVal.fillStyle = 'rgba(0,0,0,0)';
+        ctxVal.fillRect(0, 0, 128, 64);
+        ctxVal.fillStyle = '#ffffff';
+        ctxVal.font = 'bold 28px monospace';
+        ctxVal.textAlign = 'center';
+        ctxVal.textBaseline = 'middle';
+        ctxVal.fillText(valorClamp.toFixed(1), 64, 32);
+        perilla.userData.valorMesh.material.map.needsUpdate = true;
+
+        // Aplicar al estado del simulador
+        const tipo = perilla.userData.tipo;
+        if (tipo === 'potencia') {
+            estado.corriente = valorClamp;
+            const sliderHtml = document.getElementById('corriente');
+            if (sliderHtml) {
+                sliderHtml.value = valorClamp;
+                document.getElementById('corriente-val').textContent = valorClamp.toFixed(1);
+            }
+            if (typeof actualizarTodo === 'function') actualizarTodo();
+        } else if (tipo === 'rotacion' && grua) {
+            grua.rotacion = valorClamp;
+            grua.actualizarPosiciones();
+        } else if (tipo === 'extension' && grua) {
+            grua.extension = valorClamp;
+            grua.actualizarPosiciones();
+        } else if (tipo === 'elevacion' && grua) {
+            grua.control = valorClamp;
+        }
+    }
+
+    dibujarPantallaVR(V, I, peso, temp) {
+        const ctx = this.ctxPantallaVR;
+        if (!ctx) return;
+        ctx.fillStyle = '#0a0f0a';
+        ctx.fillRect(0, 0, 512, 256);
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(6, 6, 500, 244);
+        ctx.fillStyle = '#00ff88';
+        ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('TABLERO VR', 256, 35);
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 24px monospace';
+        const colorTemp = temp > 200 ? '#ff3333' : temp > 100 ? '#ffaa00' : '#00ff88';
+        ctx.fillStyle = '#00ff88';
+        ctx.fillText('V:', 20, 90);
+        ctx.fillText('I:', 20, 140);
+        ctx.fillText('PESO:', 20, 190);
+        ctx.fillStyle = colorTemp;
+        ctx.fillText('T:', 20, 240);
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${V.toFixed(1)} V`, 490, 90);
+        ctx.fillText(`${I.toFixed(1)} A`, 490, 140);
+        ctx.fillText(`${peso.toFixed(2)} g`, 490, 190);
+        ctx.fillStyle = colorTemp;
+        ctx.fillText(`${temp.toFixed(0)} °C`, 490, 240);
+        this.texturaPantallaVR.needsUpdate = true;
+    }
+
+    // ==========================================
+    // LABORATORIO (mesa más alta y larga)
     // ==========================================
     crearLaboratorio() {
         const grupo = this.grupoLaboratorio;
 
         const piso = new THREE.Mesh(
-            new THREE.PlaneGeometry(6, 6),
+            new THREE.PlaneGeometry(12, 12),
             new THREE.MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.9, metalness: 0.1 })
         );
         piso.rotation.x = -Math.PI / 2;
         piso.receiveShadow = true;
         grupo.add(piso);
 
-        const grid = new THREE.GridHelper(6, 60, 0x555566, 0x444455);
+        const grid = new THREE.GridHelper(12, 120, 0x555566, 0x444455);
         grid.position.y = 0.002;
         grupo.add(grid);
 
+        // Paredes del laboratorio
         const paredMat = new THREE.MeshStandardMaterial({ color: 0x2a2a35, roughness: 0.95 });
-        const paredFondo = new THREE.Mesh(new THREE.PlaneGeometry(6, 3), paredMat);
-        paredFondo.position.set(0, 1.5, -2);
+        const paredFondo = new THREE.Mesh(new THREE.PlaneGeometry(12, 5), paredMat);
+        paredFondo.position.set(0, 2.5, -4);
         grupo.add(paredFondo);
 
-        const paredIzq = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), paredMat);
+        const paredIzq = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), paredMat);
         paredIzq.rotation.y = Math.PI / 2;
-        paredIzq.position.set(-2, 1.5, 0);
+        paredIzq.position.set(-4, 2.5, 0);
         grupo.add(paredIzq);
 
-        const paredDer = new THREE.Mesh(new THREE.PlaneGeometry(4, 3), paredMat);
+        const paredDer = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), paredMat);
         paredDer.rotation.y = -Math.PI / 2;
-        paredDer.position.set(2, 1.5, 0);
+        paredDer.position.set(4, 2.5, 0);
         grupo.add(paredDer);
 
-        const techo = new THREE.Mesh(new THREE.PlaneGeometry(6, 4), paredMat);
+        const techo = new THREE.Mesh(new THREE.PlaneGeometry(12, 8), paredMat);
         techo.rotation.x = Math.PI / 2;
-        techo.position.y = 3;
+        techo.position.y = 5;
         grupo.add(techo);
 
-        const lamparaCaja = new THREE.Mesh(
-            new THREE.BoxGeometry(0.6, 0.05, 0.2),
-            new THREE.MeshStandardMaterial({ color: 0xeeeeee, emissive: 0xffffcc, emissiveIntensity: 0.6 })
-        );
-        lamparaCaja.position.set(0, 2.95, 0);
-        grupo.add(lamparaCaja);
+        // Lámparas del techo
+        for (let i = -1; i <= 1; i++) {
+            const lamparaCaja = new THREE.Mesh(
+                new THREE.BoxGeometry(1.0, 0.1, 0.3),
+                new THREE.MeshStandardMaterial({
+                    color: 0xeeeeee,
+                    emissive: 0xffffcc,
+                    emissiveIntensity: 0.8
+                })
+            );
+            lamparaCaja.position.set(i * 2, 4.9, 0);
+            grupo.add(lamparaCaja);
 
+            const luzLamp = new THREE.PointLight(0xffeecc, 1.0, 8, 2);
+            luzLamp.position.set(i * 2, 4.7, 0);
+            grupo.add(luzLamp);
+        }
+
+        // Estantería
         const estanteMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.6, roughness: 0.5 });
-        for (let nivel = 0; nivel < 3; nivel++) {
-            const estante = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.02, 0.15), estanteMat);
-            estante.position.set(-1.5, 0.6 + nivel * 0.4, -1.9);
+        for (let nivel = 0; nivel < 4; nivel++) {
+            const estante = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.03, 0.3), estanteMat);
+            estante.position.set(-3, 1.0 + nivel * 0.7, -3.5);
             grupo.add(estante);
         }
 
-        const colores = [0xff6666, 0x66ff66, 0x6666ff, 0xffff66];
+        // Cajas de colores en la estantería
+        const colores = [0xff6666, 0x66ff66, 0x6666ff, 0xffff66, 0xff66ff, 0x66ffff];
         colores.forEach((c, i) => {
             const caja = new THREE.Mesh(
-                new THREE.BoxGeometry(0.15, 0.1, 0.12),
+                new THREE.BoxGeometry(0.25, 0.2, 0.2),
                 new THREE.MeshStandardMaterial({ color: c, metalness: 0.5, roughness: 0.4 })
             );
-            caja.position.set(-2 + i * 0.2, 0.65, -1.85);
+            caja.position.set(-3.5 + (i % 3) * 0.5, 1.15 + Math.floor(i / 3) * 0.7, -3.4);
             grupo.add(caja);
         });
     }
 
     // ==========================================
-    // ESCENA DE DISEÑO (bobina)
+    // ESCENA DE DISEÑO (mesa más alta y larga)
     // ==========================================
     dibujarEscenaDiseno(params, resultado) {
         while (this.grupoEscena.children.length > 0) {
@@ -184,8 +474,12 @@ class Escena3D {
         const h = params.longitud / 100;
         const D = params.diametro / 100;
         const r = resultado;
-        const anchoMesa = 0.7, fondoMesa = 0.4, altoMesa = 0.02;
-        const alturaPatas = 0.35;
+
+        // MESA: 2x más larga, 2.5x más alta
+        const anchoMesa = 1.4;     // antes 0.7 → ahora 1.4
+        const fondoMesa = 0.8;     // antes 0.4 → ahora 0.8
+        const altoMesa = 0.05;
+        const alturaPatas = 0.875;  // antes 0.35 → ahora 0.875 (2.5x)
 
         const mesaSuperficie = new THREE.Mesh(
             new THREE.BoxGeometry(anchoMesa, altoMesa, fondoMesa),
@@ -196,18 +490,19 @@ class Escena3D {
         mesaSuperficie.receiveShadow = true;
         this.grupoEscena.add(mesaSuperficie);
 
-        const pataGeo = new THREE.BoxGeometry(0.025, alturaPatas, 0.025);
+        const pataGeo = new THREE.BoxGeometry(0.05, alturaPatas, 0.05);
         const pataMat = new THREE.MeshStandardMaterial({ color: 0x3a2410 });
-        [[-anchoMesa/2+0.025, alturaPatas/2, -fondoMesa/2+0.025],
-         [ anchoMesa/2-0.025, alturaPatas/2, -fondoMesa/2+0.025],
-         [-anchoMesa/2+0.025, alturaPatas/2,  fondoMesa/2-0.025],
-         [ anchoMesa/2-0.025, alturaPatas/2,  fondoMesa/2-0.025]].forEach(pos => {
+        [[-anchoMesa/2+0.05, alturaPatas/2, -fondoMesa/2+0.05],
+         [ anchoMesa/2-0.05, alturaPatas/2, -fondoMesa/2+0.05],
+         [-anchoMesa/2+0.05, alturaPatas/2,  fondoMesa/2-0.05],
+         [ anchoMesa/2-0.05, alturaPatas/2,  fondoMesa/2-0.05]].forEach(pos => {
             const pata = new THREE.Mesh(pataGeo, pataMat);
             pata.position.set(pos[0], pos[1], pos[2]);
             pata.castShadow = true;
             this.grupoEscena.add(pata);
         });
 
+        // Soportes y bobina se quedan igual (no escalamos)
         const radioExterno = r.radioExterno;
         let alturaSoporte;
         if (params.forma === 'u') {
@@ -255,37 +550,38 @@ class Escena3D {
         else if (params.forma === 'toroidal') this.dibujarFormaToroidal(params, r, yCentroBobina);
         else this.dibujarFormaAire(params, r, yCentroBobina);
 
-        const fuenteX = -anchoMesa / 2 + 0.1;
-        const fuenteZ = fondoMesa / 2 - 0.1;
+        // Fuente
+        const fuenteX = -anchoMesa / 2 + 0.2;
+        const fuenteZ = fondoMesa / 2 - 0.15;
         const fuenteY = alturaPatas + altoMesa / 2;
         const fuente = new THREE.Group();
         const caja = new THREE.Mesh(
-            new THREE.BoxGeometry(0.12, 0.1, 0.08),
+            new THREE.BoxGeometry(0.2, 0.15, 0.12),
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.4 })
         );
         caja.castShadow = true;
         fuente.add(caja);
         const pantalla = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.08, 0.04),
+            new THREE.PlaneGeometry(0.12, 0.06),
             new THREE.MeshBasicMaterial({ color: 0x001a00 })
         );
-        pantalla.position.set(0, 0.02, 0.041);
+        pantalla.position.set(0, 0.03, 0.062);
         fuente.add(pantalla);
         const terminalPos = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.006, 0.006, 0.012, 8),
+            new THREE.CylinderGeometry(0.008, 0.008, 0.015, 8),
             new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x550000 })
         );
-        terminalPos.position.set(-0.03, -0.04, 0.04);
+        terminalPos.position.set(-0.05, -0.06, 0.06);
         terminalPos.rotation.x = Math.PI / 2;
         fuente.add(terminalPos);
         const terminalNeg = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.006, 0.006, 0.012, 8),
+            new THREE.CylinderGeometry(0.008, 0.008, 0.015, 8),
             new THREE.MeshStandardMaterial({ color: 0x000000 })
         );
-        terminalNeg.position.set(0.03, -0.04, 0.04);
+        terminalNeg.position.set(0.05, -0.06, 0.06);
         terminalNeg.rotation.x = Math.PI / 2;
         fuente.add(terminalNeg);
-        fuente.position.set(fuenteX, fuenteY + 0.05, fuenteZ);
+        fuente.position.set(fuenteX, fuenteY + 0.08, fuenteZ);
         this.grupoEscena.add(fuente);
 
         const crearCable = (inicio, fin, color) => {
@@ -293,18 +589,18 @@ class Escena3D {
             for (let i = 0; i <= 20; i++) {
                 const t = i / 20;
                 const x = inicio.x + (fin.x - inicio.x) * t;
-                const y = inicio.y + (fin.y - inicio.y) * t + Math.sin(t * Math.PI) * 0.05;
+                const y = inicio.y + (fin.y - inicio.y) * t + Math.sin(t * Math.PI) * 0.08;
                 const z = inicio.z + (fin.z - inicio.z) * t;
                 puntos.push(new THREE.Vector3(x, y, z));
             }
             const curva = new THREE.CatmullRomCurve3(puntos);
-            const geo = new THREE.TubeGeometry(curva, 40, 0.0035, 8, false);
+            const geo = new THREE.TubeGeometry(curva, 40, 0.005, 8, false);
             return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 }));
         };
         const puntoInicioAlambre = new THREE.Vector3(-h / 2, yCentroBobina + r.tuboRadio + r.radioVisual, 0);
         const puntoFinAlambre = new THREE.Vector3(h / 2, yCentroBobina + r.tuboRadio + r.radioVisual, 0);
-        const terminalPosWorld = new THREE.Vector3(fuenteX - 0.03, fuenteY + 0.05 - 0.04, fuenteZ + 0.04);
-        const terminalNegWorld = new THREE.Vector3(fuenteX + 0.03, fuenteY + 0.05 - 0.04, fuenteZ + 0.04);
+        const terminalPosWorld = new THREE.Vector3(fuenteX - 0.05, fuenteY + 0.08 - 0.06, fuenteZ + 0.06);
+        const terminalNegWorld = new THREE.Vector3(fuenteX + 0.05, fuenteY + 0.08 - 0.06, fuenteZ + 0.06);
         this.grupoEscena.add(crearCable(terminalPosWorld, puntoInicioAlambre, 0xcc0000));
         this.grupoEscena.add(crearCable(terminalNegWorld, puntoFinAlambre, 0x111111));
         this.offsetAlambre = new THREE.Vector3(0, yCentroBobina, 0);
@@ -588,7 +884,7 @@ class Escena3D {
     }
 
     // ==========================================
-    // CAMPO MAGNÉTICO
+    // CAMPO MAGNÉTICO (sin cambios)
     // ==========================================
     dibujarCampo(B, saturado) {
         while (this.grupoCampo.children.length > 0) {
@@ -1048,15 +1344,14 @@ class Escena3D {
         const ayuda = document.getElementById('ayuda-cabina');
         const panelControl = document.getElementById('panel-control');
         const btnToggle = document.getElementById('btn-toggle-panel');
-        const btnVR = document.getElementById('btn-entrar-vr');
 
         if (modo === 'diseno') {
             if (panelControl) panelControl.style.display = 'block';
 
             this.scene.background = new THREE.Color(0x0a0a1a);
-            this.scene.fog = new THREE.Fog(0x0a0a1a, 2, 6);
+            this.scene.fog = new THREE.Fog(0x0a0a1a, 4, 10);
             this.luzAmbiente.intensity = 0.6;
-            this.luzTecho.intensity = 1.2;
+            this.luzTecho.intensity = 1.5;
             this.luzTecho.color.setHex(0xffeecc);
             this.luzDir1.color.setHex(0xffffff);
             this.luzDir2.color.setHex(0x88bbff);
@@ -1070,9 +1365,10 @@ class Escena3D {
             this.grupoIndustrial.visible = false;
             this.grupoCabina.visible = false;
             this.grupoExplosion.visible = true;
+            this.grupoPanelVR.visible = true;
 
-            this.camera.position.set(0.5, 0.45, 0.7);
-            this.controls.target.set(0, 0.3, 0);
+            this.camera.position.set(0.5, 0.9, 1.4);
+            this.controls.target.set(0, 0.9, 0);
             this.controls.enabled = true;
             this.controls.update();
 
@@ -1103,6 +1399,7 @@ class Escena3D {
             this.grupoIndustrial.visible = true;
             this.grupoCabina.visible = false;
             this.grupoExplosion.visible = false;
+            this.grupoPanelVR.visible = false;
 
             this.camera.position.set(0.5, 2.5, 9);
             this.controls.target.set(-0.3, 1.0, 2.5);
@@ -1113,7 +1410,7 @@ class Escena3D {
             document.getElementById('modo-indicador').style.color = '#ff8c00';
 
             ayuda.classList.remove('oculto');
-            ayuda.innerHTML = '🖱️ Clic izq: girar · Clic der: desplazar · Rueda: zoom · Usa el panel flotante';
+            ayuda.innerHTML = '🖱️ Clic izq: girar · Clic der: desplazar · Rueda: zoom';
             btnToggle.classList.remove('oculto');
             this.renderer.domElement.style.cursor = 'default';
         }
@@ -1182,12 +1479,37 @@ class Escena3D {
             l.material.opacity = 0.35 + 0.2 * Math.sin(this.tiempo * 2 + i);
         });
 
+        // VR: Actualizar sliders si están activos
+        if (this.sliderActivo && this.renderer.xr.isPresenting) {
+            // Detectar cuál controlador está usando el slider
+            for (const controller of this.controllers) {
+                this.raycasterVR.setFromXRController(controller);
+                const intersect = this.raycasterVR.intersectObject(this.sliderActivo.userData.grupoPadre, true);
+                if (intersect.length > 0) {
+                    // Convertir la posición del rayo en un valor del slider
+                    const puntoInterseccion = intersect[0].point;
+                    const mundoGrupo = new THREE.Vector3();
+                    this.sliderActivo.userData.grupoPadre.getWorldPosition(mundoGrupo);
+                    const offset = puntoInterseccion.clone().sub(mundoGrupo);
+                    const local = this.sliderActivo.userData.grupoPadre.worldToLocal(puntoInterseccion.clone());
+
+                    // Mapear la coordenada X local (-0.35 a 0.35) al rango
+                    const t = Math.max(0, Math.min(1, (local.x + 0.35) / 0.7));
+                    const min = this.sliderActivo.userData.min;
+                    const max = this.sliderActivo.userData.max;
+                    const valorNuevo = min + t * (max - min);
+                    this.actualizarSliderVR(this.sliderActivo, valorNuevo);
+                }
+            }
+        }
+
         this.controls.update();
 
-        if (this.modo === 'grua') {
+        // Actualizar pantalla VR y HTML
+        if (this.modo === 'grua' || this.modo === 'diseno') {
             const r = estado.resultado;
             if (r) {
-                this.dibujarPantalla(r.V, estado.corriente, r.m_max_ideal * 1000, estado.temperatura);
+                this.dibujarPantallaVR(r.V, estado.corriente, r.m_max_ideal * 1000, estado.temperatura);
             }
         }
 
