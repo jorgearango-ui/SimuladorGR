@@ -7,7 +7,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
 
     <style>
@@ -116,6 +115,20 @@
         }
         #flash-explosion.activo { opacity: 1; }
 
+        /* ============================================
+           FADE DE TRANSICIÓN ENTRE LOCALES
+           ============================================ */
+        #fade-transicion {
+            position: absolute;
+            inset: 0;
+            background: #000;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 200;
+            transition: opacity 0.5s;
+        }
+        #fade-transicion.activo { opacity: 1; }
+
         #ayuda-cabina {
             position: absolute;
             bottom: 15px;
@@ -132,9 +145,6 @@
             max-width: 600px;
         }
 
-        /* ============================================
-           BOTÓN VR (WebXR)
-           ============================================ */
         #btn-entrar-vr {
             position: absolute;
             top: 15px;
@@ -158,9 +168,6 @@
         }
         #btn-entrar-vr.oculto { display: none; }
 
-        /* ============================================
-           PANEL DE CONTROL FLOTANTE (MODO GRÚA)
-           ============================================ */
         #panel-grua-flotante {
             position: absolute;
             bottom: 20px;
@@ -385,6 +392,7 @@
         <main id="vista-3d">
             <div id="modo-indicador">📐 MODO DISEÑO</div>
             <div id="flash-explosion"></div>
+            <div id="fade-transicion"></div>
 
             <button id="btn-entrar-vr">🥽 Entrar en VR</button>
 
@@ -396,7 +404,6 @@
 
             <div id="panel-grua-flotante">
                 <h3>⚙️ CONTROL DE GRÚA</h3>
-
                 <canvas id="pantalla-digital" width="512" height="256"></canvas>
 
                 <div class="control-grua potencia">
@@ -432,9 +439,9 @@
                 </div>
 
                 <div class="luces-indicadoras">
-                    <div class="luz verde" id="luz-verde" title="OK"></div>
-                    <div class="luz amarilla apagada" id="luz-amarilla" title="Advertencia"></div>
-                    <div class="luz roja apagada" id="luz-roja" title="Peligro"></div>
+                    <div class="luz verde" id="luz-verde"></div>
+                    <div class="luz amarilla apagada" id="luz-amarilla"></div>
+                    <div class="luz roja apagada" id="luz-roja"></div>
                 </div>
 
                 <button id="btn-soltar-flotante">🔓 SOLTAR PESO</button>
@@ -442,8 +449,10 @@
         </main>
     </div>
 
+    <!-- Scripts (el orden importa) -->
     <script src="fisica.js"></script>
     <script src="escena.js"></script>
+    <script src="escenaPatio.js"></script>
     <script src="grua.js"></script>
     <script src="main.js"></script>
 </body>

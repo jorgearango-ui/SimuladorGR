@@ -1,7 +1,8 @@
 // ============================================
-// MÓDULO DE FÍSICA
+// MÓDULO DE FÍSICA + SONIDO + VR HELPERS
 // ============================================
 
+// Constantes físicas
 const MU_0 = 4 * Math.PI * 1e-7;
 const G = 9.81;
 const RHO_CU = 1.68e-8;
@@ -9,6 +10,7 @@ const T_FUSION_CU = 1085;
 const T_AMBIENTE = 25;
 const CAPACIDAD_TERMICA_CU = 385;
 
+// Datos AWG
 const AWG_DATA = {
     10: { d: 2.588e-3, imax: 55 }, 12: { d: 2.053e-3, imax: 41 },
     14: { d: 1.628e-3, imax: 32 }, 16: { d: 1.291e-3, imax: 22 },
@@ -17,6 +19,7 @@ const AWG_DATA = {
     26: { d: 0.405e-3, imax: 2.2 }, 28: { d: 0.321e-3, imax: 1.4 }
 };
 
+// Datos de materiales del núcleo
 const NUCLEO_DATA = {
     aire:      { mu_r: 1,      Bsat: Infinity, color: 0x000000, metal: 0,   rough: 1 },
     hierro:    { mu_r: 5000,   Bsat: 2.2,      color: 0x505055, metal: 0.85, rough: 0.35 },
@@ -25,6 +28,7 @@ const NUCLEO_DATA = {
     permalloy: { mu_r: 100000, Bsat: 0.8,      color: 0x8a8a95, metal: 0.95, rough: 0.25 }
 };
 
+// Datos de formas del núcleo
 const FORMA_DATA = {
     aire:     { k_base: 0.02, nombre: 'Aire' },
     barra:    { k_base: 0.15, nombre: 'Barra recta' },
@@ -32,6 +36,9 @@ const FORMA_DATA = {
     toroidal: { k_base: 0.85, nombre: 'Toroidal' }
 };
 
+// ============================================
+// CÁLCULOS
+// ============================================
 function calcularRadioVisual(awg, diametroTuboM) {
     const radioReal = awg.d / 2;
     const factorExageracion = 2.0;
@@ -115,7 +122,7 @@ function calcularTemperatura(P, masa_cu, t, T_actual) {
 }
 
 // ============================================
-// CLASE: SONIDO DEL SIMULADOR
+// SONIDO
 // ============================================
 class SonidoSimulador {
     constructor() {
@@ -214,4 +221,65 @@ class SonidoSimulador {
         osc.start();
         osc.stop(ahora + 0.3);
     }
+
+    // ============================================
+    // NUEVO: Sonido de "whoosh" para teletransporte
+    // ============================================
+    whoosh() {
+        if (!this.iniciado) { this.ctx.resume(); this.iniciado = true; }
+        const t0 = this.ctx.currentTime;
+        const duracion = 0.8;
+
+        // Ruido blanco con filtro paso banda descendente
+        const bufferSize = this.ctx.sampleRate * duracion;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1);
+        }
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+
+        const filtro = this.ctx.createBiquadFilter();
+        filtro.type = 'bandpass';
+        filtro.Q.value = 5;
+        filtro.frequency.setValueAtTime(2000, t0);
+        filtro.frequency.exponentialRampToValueAtTime(200, t0 + duracion);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(0.3, t0 + duracion * 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, t0 + duracion);
+
+        source.connect(filtro);
+        filtro.connect(gain);
+        gain.connect(this.ctx.destination);
+        source.start(t0);
+        source.stop(t0 + duracion);
+
+        // Oscilador para dar más "cuerpo" al whoosh
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, t0);
+        osc.frequency.exponentialRampToValueAtTime(150, t0 + duracion);
+        const gainOsc = this.ctx.createGain();
+        gainOsc.gain.setValueAtTime(0.15, t0);
+        gainOsc.gain.exponentialRampToValueAtTime(0.001, t0 + duracion);
+        osc.connect(gainOsc);
+        gainOsc.connect(this.ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + duracion);
+    }
 }
+
+// ============================================
+// HELPERS DE VR
+// ============================================
+// Los locales están separados por 100 m en X:
+// Local 1 (Laboratorio):  x = 0
+// Local 2 (Patio):        x = 100
+const VR_LOCAL_LAB = 0;
+const VR_LOCAL_PATIO = 100;
+
+// Instancia global del sonido (se crea en main.js)
+let sonido = null;
