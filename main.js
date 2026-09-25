@@ -240,6 +240,9 @@ function actualizarPantallaDigital() {
     ctx.fillText(`${estado.temperatura.toFixed(0)} °C`, 480, 210);
 }
 
+// ============================================
+// EXPLOSIÓN
+// ============================================
 function explotar() {
     if (explotado) return;
     explotado = true;
@@ -394,6 +397,15 @@ function configurarBotonVR() {
                 renderer.xr.setSession(session);
                 console.log("🥽 Sesión VR iniciada");
 
+                // Reposicionar paneles delante del jugador al entrar en VR
+                setTimeout(() => {
+                    if (escena && escena.grupoPanelA) {
+                        // Los paneles ya están en (0, 1.5, -1.4) que es donde el jugador
+                        // debería estar mirando al entrar en VR.
+                        console.log("📐 Paneles VR listos");
+                    }
+                }, 500);
+
                 session.addEventListener('end', () => {
                     console.log("🥽 Sesión VR terminada");
                 });
@@ -402,6 +414,116 @@ function configurarBotonVR() {
                 console.error(e);
             }
         });
+    });
+}
+
+// ============================================
+// INTERACCIÓN CON EL MOUSE (PC)
+// ============================================
+function configurarMousePC() {
+    const canvas = renderer.domElement;
+    const raycasterMouse = new THREE.Raycaster();
+    const mouseNDC = new THREE.Vector2();
+    let sliderMouseActivo = null;
+
+    function actualizarMouseNDC(event) {
+        const rect = canvas.getBoundingClientRect();
+        mouseNDC.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouseNDC.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    canvas.addEventListener('mousedown', (event) => {
+        if (renderer.xr.isPresenting) return;
+        if (event.button !== 0) return;
+
+        actualizarMouseNDC(event);
+        raycasterMouse.setFromCamera(mouseNDC, escena.camera);
+
+        // 1. Sliders
+        let todosLosSliders = [];
+        if (escena && escena.slidersVR) todosLosSliders = todosLosSliders.concat(escena.slidersVR);
+        if (escenaPatio && escenaPatio.slidersVR) todosLosSliders = todosLosSliders.concat(escenaPatio.slidersVR);
+
+        const intersectSliders = raycasterMouse.intersectObjects(todosLosSliders, true);
+        if (intersectSliders.length > 0) {
+            let obj = intersectSliders[0].object;
+            while (obj && !obj.userData.esSliderVR && obj.parent) obj = obj.parent;
+            if (obj && obj.userData.esSliderVR) {
+                sliderMouseActivo = obj;
+                return;
+            }
+        }
+
+        // 2. Botones cicladores
+        if (escena && escena.botonesCiclicos) {
+            const intersectBotones = raycasterMouse.intersectObjects(escena.botonesCiclicos, true);
+            if (intersectBotones.length > 0) {
+                let obj = intersectBotones[0].object;
+                while (obj && !obj.userData.esBotonCiclico && obj.parent) obj = obj.parent;
+                if (obj && obj.userData.esBotonCiclico) {
+                    ciclarBotonVR(obj);
+                    return;
+                }
+            }
+        }
+
+        // 3. Botones de acción
+        let todosLosBotones = [];
+        if (escena && escena.botonesAccion) todosLosBotones = todosLosBotones.concat(escena.botonesAccion);
+        if (escenaPatio && escenaPatio.botonesAccion) todosLosBotones = todosLosBotones.concat(escenaPatio.botonesAccion);
+
+        const intersectAccion = raycasterMouse.intersectObjects(todosLosBotones, false);
+        if (intersectAccion.length > 0) {
+            let obj = intersectAccion[0].object;
+            while (obj && !obj.userData.esBotonAccion && obj.parent) obj = obj.parent;
+            if (obj && obj.userData.esBotonAccion) {
+                ejecutarAccionVR(obj.userData.accion);
+                return;
+            }
+        }
+    });
+
+    canvas.addEventListener('mousemove', (event) => {
+        if (renderer.xr.isPresenting) return;
+
+        if (sliderMouseActivo) {
+            const dx = event.movementX || 0;
+            const delta = dx * 0.005;
+            const min = sliderMouseActivo.userData.min;
+            const max = sliderMouseActivo.userData.max;
+            const valorActual = sliderMouseActivo.userData.valor;
+            const rango = max - min;
+            const nuevoValor = Math.max(min, Math.min(max, valorActual + delta * rango * 0.02));
+            actualizarSliderVR(sliderMouseActivo, nuevoValor);
+            return;
+        }
+
+        actualizarMouseNDC(event);
+        raycasterMouse.setFromCamera(mouseNDC, escena.camera);
+
+        let sobreAlgo = false;
+
+        let todosLosSliders = [];
+        if (escena && escena.slidersVR) todosLosSliders = todosLosSliders.concat(escena.slidersVR);
+        if (escenaPatio && escenaPatio.slidersVR) todosLosSliders = todosLosSliders.concat(escenaPatio.slidersVR);
+        if (raycasterMouse.intersectObjects(todosLosSliders, true).length > 0) sobreAlgo = true;
+
+        if (!sobreAlgo && escena && escena.botonesCiclicos) {
+            if (raycasterMouse.intersectObjects(escena.botonesCiclicos, true).length > 0) sobreAlgo = true;
+        }
+
+        if (!sobreAlgo) {
+            let todosLosBotones = [];
+            if (escena && escena.botonesAccion) todosLosBotones = todosLosBotones.concat(escena.botonesAccion);
+            if (escenaPatio && escenaPatio.botonesAccion) todosLosBotones = todosLosBotones.concat(escenaPatio.botonesAccion);
+            if (raycasterMouse.intersectObjects(todosLosBotones, false).length > 0) sobreAlgo = true;
+        }
+
+        canvas.style.cursor = sobreAlgo ? 'pointer' : 'default';
+    });
+
+    window.addEventListener('mouseup', () => {
+        sliderMouseActivo = null;
     });
 }
 
@@ -434,6 +556,8 @@ function conectarControladoresVR() {
 
         escena.scene.add(controller);
     }
+
+    configurarMousePC();
 }
 
 let sliderVR_Activo = null;
@@ -526,7 +650,7 @@ function ciclarBotonVR(boton) {
 }
 
 function ejecutarAccionVR(accion) {
-    console.log('Acción VR:', accion);
+    console.log('Acción:', accion);
     if (accion === 'guardar') {
         if (typeof generarInforme === 'function' && estado.resultado) {
             generarInforme(estado, estado.resultado);
@@ -636,10 +760,7 @@ function loop(tiempo) {
         }
     }
 
-    if (escena && escena.controls && estado.localActual === 'lab') {
-        escena.controls.update();
-    }
-    if (escena && escena.controls && estado.localActual === 'patio') {
+    if (escena && escena.controls) {
         escena.controls.update();
     }
 
@@ -659,7 +780,6 @@ window.addEventListener('load', () => {
         return;
     }
 
-    // Renderer compartido
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(contenedor.clientWidth, contenedor.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -669,20 +789,14 @@ window.addEventListener('load', () => {
     renderer.xr.setReferenceSpaceType('local-floor');
     contenedor.appendChild(renderer.domElement);
 
-    // Escena laboratorio
     escena = new Escena3D(contenedor, renderer);
-
-    // Escena patio (comparte la misma scene)
     escenaPatio = new EscenaPatio(escena.scene);
 
-    // Sonido
     sonido = new SonidoSimulador();
 
-    // Grúa
     grua = new GruaElectromagnetica(escenaPatio);
     escenaPatio.grua = grua;
 
-    // Vincular controles HTML
     vincularSlider('longitud', 'longitud');
     vincularSlider('diametro', 'diametro');
     vincularSlider('vueltas', 'vueltas', v => v.toFixed(0));
@@ -745,7 +859,6 @@ window.addEventListener('load', () => {
     configurarBotonVR();
     conectarControladoresVR();
 
-    // Estado inicial
     escena.mostrar();
     if (escenaPatio) escenaPatio.ocultar();
     estado.localActual = 'lab';

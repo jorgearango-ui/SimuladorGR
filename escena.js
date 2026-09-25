@@ -163,7 +163,7 @@ class Escena3D {
             new THREE.PlaneGeometry(1.6, 0.4),
             new THREE.MeshBasicMaterial({ map: this.texturaPantallaValores })
         );
-        pantalla.position.set(0, 0.95, 0.43);
+        pantalla.position.set(0, 0.85, 0.48);
         pantalla.rotation.x = -Math.PI / 4;
         grupo.add(pantalla);
     }
