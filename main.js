@@ -55,12 +55,13 @@ function trasladarA(local) {
             document.getElementById('modo-indicador').style.color = '#ff8c00';
 
             if (escena && escena.camera) {
-                escena.camera.position.set(0.5, 2.5, 9);
-                if (escena.controls) {
-                    escena.controls.target.set(-0.3, 1.0, 2.5);
-                    escena.controls.update();
-                }
-            }
+    // ✅ FIX: cámara del patio mirando hacia -z (donde está todo ahora)
+    escena.camera.position.set(0, 2.2, 3.5);
+    if (escena.controls) {
+        escena.controls.target.set(0, 1.2, -2.0);
+        escena.controls.update();
+    }
+}
         } else {
             if (escenaPatio) escenaPatio.ocultar();
             if (escena) escena.mostrar();

@@ -17,7 +17,8 @@ class GruaElectromagnetica {
         this.electroimanYMax = 2.0;
         this.electroimanYMin = 0.3;   // ✅ antes 0.15
 
-        this.posBase = new THREE.Vector3(1.5, 0, 2.5);
+        // ✅ FIX: grúa a la izquierda y al frente del usuario VR
+        this.posBase = new THREE.Vector3(-1.5, 0, -2.5);
     }
 
     equipar(bobinaParams, resultado) {
@@ -36,7 +37,7 @@ class GruaElectromagnetica {
         this.electroimanY = 1.5;
 
         grupo.position.copy(this.posBase);
-
+        grupo.rotation.y = -Math.PI / 4;   // ✅ gira el brazo hacia el centro de la escena
         // ==========================================
         // BASE GRANDE Y PESADA
         // ==========================================

@@ -52,11 +52,11 @@ class EscenaPatio {
         this.crearPanelE_GruaAcciones();
         this.crearPanelF_GruaValores();
 
-        // ✅ FIX: posicionar los paneles frente a la cámara del patio
-        // (la cámara en el patio mira hacia +Z desde la parte trasera)
-        this.grupoPanelD.position.set(0, 1.6, 4.0);
-        this.grupoPanelE.position.set(-1.8, 1.6, 4.0);
-        this.grupoPanelF.position.set(1.8, 1.6, 4.0);
+        // ✅ FIX: posicionar todo DELANTE del usuario VR (-z)
+        // El usuario VR aparece en (0,0,0) mirando hacia -z
+        this.grupoPanelD.position.set(0, 1.6, -2.0);
+        this.grupoPanelE.position.set(-1.7, 1.6, -1.6);
+        this.grupoPanelF.position.set(1.7, 1.6, -1.6);
 
         this.ocultar();
     }
@@ -88,9 +88,10 @@ class EscenaPatio {
                     roughness: 0.7, metalness: 0.3
                 })
             );
-            const angulo = (i / 30) * Math.PI * 2;
+            // ✅ Contenedores alrededor del origen, evitando la zona frontal
+            const angulo = (i / 30) * Math.PI * 2 + Math.PI;
             const radio = 8 + Math.random() * 6;
-            cont.position.set(Math.cos(angulo) * radio, hh / 2, Math.sin(angulo) * radio - 5);
+            cont.position.set(Math.cos(angulo) * radio, hh / 2, Math.sin(angulo) * radio);
             cont.rotation.y = Math.random() * Math.PI * 2;
             cont.castShadow = true;
             grupo.add(cont);
@@ -169,7 +170,8 @@ class EscenaPatio {
         const grupo = this.grupoPanelF;
 
         const panelContenedor = new THREE.Group();
-        panelContenedor.rotation.y = -Math.PI / 3;
+        // ✅ FIX: panel derecho, gira -π/6 hacia el centro
+        panelContenedor.rotation.y = -Math.PI / 6;
         grupo.add(panelContenedor);
 
         const panel = new THREE.Mesh(
@@ -379,7 +381,6 @@ class EscenaPatio {
         grupo.add(zonaColision);
 
         grupoPadre.add(grupo);
-        // ✅ Registramos el GRUPO (que tiene .accion)
         this.botonesAccion.push(grupo);
     }
 
@@ -387,6 +388,8 @@ class EscenaPatio {
         const grupo = this.grupoPanelD;
 
         const panelContenedor = new THREE.Group();
+        // ✅ Panel centro, mira directo a +z (hacia el usuario)
+        panelContenedor.rotation.y = 0;
         grupo.add(panelContenedor);
 
         const panel = new THREE.Mesh(
@@ -430,9 +433,9 @@ class EscenaPatio {
     crearPanelE_GruaAcciones() {
         const grupo = this.grupoPanelE;
 
-        // ✅ Group contenedor rotado
         const panelContenedor = new THREE.Group();
-        panelContenedor.rotation.y = Math.PI / 3;
+        // ✅ Panel izquierdo, gira +π/6 hacia el centro
+        panelContenedor.rotation.y = Math.PI / 6;
         grupo.add(panelContenedor);
 
         const panel = new THREE.Mesh(
@@ -467,9 +470,7 @@ class EscenaPatio {
         titulo.position.set(0, 0.5, 0.04);
         panelContenedor.add(titulo);
 
-        // ✅ Botón SOLTAR (protagonista)
         this.crearBotonAccion(panelContenedor, 0, 0.25, 0.04, 'soltar', '🔓 SOLTAR', 0xff3333, 0);
-        // ✅ Botón VOLVER
         this.crearBotonAccion(panelContenedor, 0, -0.05, 0.04, 'volver', '↩️ VOLVER', 0x4ecca3, 0);
     }
 
