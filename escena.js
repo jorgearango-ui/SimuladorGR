@@ -1,22 +1,13 @@
 // ============================================
 // LOCAL 1: LABORATORIO
 // ============================================
-// Este archivo maneja ÚNICAMENTE el laboratorio:
-// - Suelo, paredes, techo, luces
-// - Mesa con la bobina (diseño)
-// - Campo magnético, electrones, partículas
-// - Paneles VR de diseño (A, B, C)
-// - Pantalla de valores en el borde de la mesa
-// ============================================
 
 class Escena3D {
     constructor(contenedor, rendererCompartido) {
         this.contenedor = contenedor;
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x0a0a1a);
-        this.offsetX = VR_LOCAL_LAB; // Posición del local en el mundo
 
-        // Si nos pasan un renderer compartido, lo usamos
         this.renderer = rendererCompartido;
 
         this.camera = new THREE.PerspectiveCamera(
@@ -25,7 +16,11 @@ class Escena3D {
             0.01,
             300
         );
-        this.camera.position.set(0, 1.5, 2.5);
+        this.camera.position.set(0.5, 1.5, 2.5);
+
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+        this.controls.target.set(0, 1.3, 0);
 
         // Luces del laboratorio
         this.luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6);
@@ -50,7 +45,7 @@ class Escena3D {
         this.luzDir2.position.set(-1, 1, -1);
         this.scene.add(this.luzDir2);
 
-        // Grupos del laboratorio
+        // Grupos
         this.grupoLaboratorio = new THREE.Group();
         this.grupoEscena = new THREE.Group();
         this.grupoCampo = new THREE.Group();
@@ -61,18 +56,6 @@ class Escena3D {
         this.grupoPanelA = new THREE.Group();
         this.grupoPanelB = new THREE.Group();
         this.grupoPanelC = new THREE.Group();
-
-        // Desplazar todos los grupos al Local 1
-        this.grupoLaboratorio.position.x = this.offsetX;
-        this.grupoEscena.position.x = this.offsetX;
-        this.grupoCampo.position.x = this.offsetX;
-        this.grupoElectrones.position.x = this.offsetX;
-        this.grupoParticulasCampo.position.x = this.offsetX;
-        this.grupoExplosion.position.x = this.offsetX;
-        this.grupoPantallaValores.position.x = this.offsetX;
-        this.grupoPanelA.position.x = this.offsetX;
-        this.grupoPanelB.position.x = this.offsetX;
-        this.grupoPanelC.position.x = this.offsetX;
 
         this.scene.add(this.grupoLaboratorio);
         this.scene.add(this.grupoEscena);
@@ -85,7 +68,6 @@ class Escena3D {
         this.scene.add(this.grupoPanelB);
         this.scene.add(this.grupoPanelC);
 
-        // Estado del laboratorio
         this.electrones = [];
         this.lineasCampo = [];
         this.particulasCampo = [];
@@ -93,12 +75,10 @@ class Escena3D {
         this.tiempo = 0;
         this.formaActual = 'barra';
 
-        // Sliders y botones VR (referencias a los objetos interactivos)
         this.slidersVR = [];
         this.botonesCiclicos = [];
         this.botonesAccion = [];
 
-        // Construir todo el laboratorio
         this.crearLaboratorio();
         this.crearPantallaValores();
         this.crearPanelA_Sliders();
@@ -106,9 +86,6 @@ class Escena3D {
         this.crearPanelC_Acciones();
     }
 
-    // ==========================================
-    // LABORATORIO
-    // ==========================================
     crearLaboratorio() {
         const grupo = this.grupoLaboratorio;
 
@@ -172,9 +149,6 @@ class Escena3D {
         });
     }
 
-    // ==========================================
-    // PANTALLA DE VALORES EN EL BORDE DE LA MESA
-    // ==========================================
     crearPantallaValores() {
         const grupo = this.grupoPantallaValores;
 
@@ -249,9 +223,6 @@ class Escena3D {
         this.texturaPantallaValores.needsUpdate = true;
     }
 
-    // ==========================================
-    // CREAR SLIDER (recibe grupoPadre)
-    // ==========================================
     crearSlider(grupoPadre, x, y, z, tipo, etiqueta, color, min, max, valorInicial, rotY) {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
@@ -338,9 +309,6 @@ class Escena3D {
         this.slidersVR.push(perilla);
     }
 
-    // ==========================================
-    // CREAR BOTÓN CICLICO
-    // ==========================================
     crearBotonCiclico(grupoPadre, x, y, z, tipo, etiqueta, valorInicial, opciones, indiceInicial, rotY) {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
@@ -406,9 +374,6 @@ class Escena3D {
         this.botonesCiclicos.push(grupo);
     }
 
-    // ==========================================
-    // CREAR BOTÓN DE ACCIÓN
-    // ==========================================
     crearBotonAccion(grupoPadre, x, y, z, accion, etiqueta, color, rotY) {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
@@ -460,9 +425,6 @@ class Escena3D {
         this.botonesAccion.push(zonaColision);
     }
 
-    // ==========================================
-    // PANEL A - Sliders de diseño (frente)
-    // ==========================================
     crearPanelA_Sliders() {
         const grupo = this.grupoPanelA;
 
@@ -505,9 +467,6 @@ class Escena3D {
         this.crearSlider(grupo, 0, 1.22, -1.36, 'corriente', 'CORRIENTE (A)', 0xff3333, 0, 30, estado.corriente, 0);
     }
 
-    // ==========================================
-    // PANEL B - Botones de materiales (izquierda)
-    // ==========================================
     crearPanelB_Botones() {
         const grupo = this.grupoPanelB;
 
@@ -556,9 +515,6 @@ class Escena3D {
         this.crearBotonCiclico(grupo, -1.42, 1.28, 0.08, 'forma', 'FORMA', estado.forma.toUpperCase(), ['barra', 'u', 'toroidal', 'aire'], indiceForma >= 0 ? indiceForma : 0, Math.PI / 3);
     }
 
-    // ==========================================
-    // PANEL C - Botones de acción (derecha)
-    // ==========================================
     crearPanelC_Acciones() {
         const grupo = this.grupoPanelC;
 
@@ -602,9 +558,6 @@ class Escena3D {
         this.crearBotonAccion(grupo, 1.42, 1.45, 0.08, 'equipar', '🏗️ EQUIPAR', 0xffcc00, -Math.PI / 3);
     }
 
-    // ==========================================
-    // ESCENA DE DISEÑO (bobina)
-    // ==========================================
     dibujarEscenaDiseno(params, resultado) {
         while (this.grupoEscena.children.length > 0) {
             this.grupoEscena.remove(this.grupoEscena.children[0]);
@@ -686,7 +639,6 @@ class Escena3D {
         else if (params.forma === 'toroidal') this.dibujarFormaToroidal(params, r, yCentroBobina);
         else this.dibujarFormaAire(params, r, yCentroBobina);
 
-        // Fuente de poder
         const fuenteX = -anchoMesa / 2 + 0.2;
         const fuenteZ = fondoMesa / 2 - 0.15;
         const fuenteY = alturaPatas + altoMesa / 2;
@@ -1023,9 +975,6 @@ class Escena3D {
         return new THREE.Color(r, g, b);
     }
 
-    // ==========================================
-    // CAMPO MAGNÉTICO
-    // ==========================================
     dibujarCampo(B, saturado) {
         while (this.grupoCampo.children.length > 0) {
             this.grupoCampo.remove(this.grupoCampo.children[0]);
@@ -1337,7 +1286,6 @@ class Escena3D {
         }
         const luzExplosion = new THREE.PointLight(0xffaa00, 20, 5, 2);
         luzExplosion.position.copy(posicion);
-        luzExplosion.position.x += this.offsetX;
         this.scene.add(luzExplosion);
         setTimeout(() => this.scene.remove(luzExplosion), 300);
 
@@ -1413,13 +1361,9 @@ class Escena3D {
         this.grupoParticulasCampo.visible = false;
     }
 
-    // ==========================================
-    // LOOP DE ANIMACIÓN DEL LABORATORIO
-    // ==========================================
     actualizar(dt) {
         this.tiempo += dt;
 
-        // Electrones
         this.electrones.forEach(e => {
             if (e.userData.vel !== undefined) return;
             e.userData.t = (e.userData.t + e.userData.velocidad * dt) % 1;
@@ -1435,7 +1379,6 @@ class Escena3D {
             }
         });
 
-        // Partículas de campo
         if (this.parametrosCampo) {
             this.particulasCampo.forEach(p => {
                 p.userData.t = (p.userData.t + p.userData.velocidad * dt) % 1;
@@ -1444,7 +1387,6 @@ class Escena3D {
             });
         }
 
-        // Partículas de explosión
         for (let i = this.particulasExplosion.length - 1; i >= 0; i--) {
             const p = this.particulasExplosion[i];
             p.userData.tiempo += dt;
@@ -1474,18 +1416,13 @@ class Escena3D {
             }
         }
 
-        // Líneas de campo
         this.lineasCampo.forEach((l, i) => {
             l.material.opacity = 0.35 + 0.2 * Math.sin(this.tiempo * 2 + i);
         });
 
-        // Pantalla de valores
         this.dibujarPantallaValores();
     }
 
-    // ==========================================
-    // HELPERS: mostrar/ocultar
-    // ==========================================
     mostrar() {
         this.grupoLaboratorio.visible = true;
         this.grupoEscena.visible = true;

@@ -1,17 +1,10 @@
 // ============================================
 // LOCAL 2: PATIO INDUSTRIAL
 // ============================================
-// Este archivo maneja ÚNICAMENTE el patio industrial:
-// - Suelo, cielo nocturno, contenedores, luces de obra
-// - La grúa con sus pesos
-// - Paneles VR de grúa (D, E, F)
-// - Pantalla de valores de la grúa
-// ============================================
 
 class EscenaPatio {
     constructor(sceneCompartida) {
         this.scene = sceneCompartida;
-        this.offsetX = VR_LOCAL_PATIO; // x = 100
 
         // Grupos del patio
         this.grupoIndustrial = new THREE.Group();
@@ -20,30 +13,22 @@ class EscenaPatio {
         this.grupoPanelE = new THREE.Group();
         this.grupoPanelF = new THREE.Group();
 
-        // Desplazar todos los grupos al Local 2
-        this.grupoIndustrial.position.x = this.offsetX;
-        this.grupoGrua.position.x = this.offsetX;
-        this.grupoPanelD.position.x = this.offsetX;
-        this.grupoPanelE.position.x = this.offsetX;
-        this.grupoPanelF.position.x = this.offsetX;
-
         this.scene.add(this.grupoIndustrial);
         this.scene.add(this.grupoGrua);
         this.scene.add(this.grupoPanelD);
         this.scene.add(this.grupoPanelE);
         this.scene.add(this.grupoPanelF);
 
-        // Luces del patio (cálidas, industriales)
+        // Luces del patio
         this.luzAmbiente = new THREE.AmbientLight(0xffffff, 0.4);
-        this.luzAmbiente.position.x = this.offsetX;
         this.scene.add(this.luzAmbiente);
 
         this.luzTecho = new THREE.PointLight(0xffddaa, 0.8, 20, 2);
-        this.luzTecho.position.set(this.offsetX, 8, 0);
+        this.luzTecho.position.set(0, 8, 0);
         this.scene.add(this.luzTecho);
 
         this.luzDir1 = new THREE.DirectionalLight(0xffddaa, 0.8);
-        this.luzDir1.position.set(this.offsetX + 1, 5, 1);
+        this.luzDir1.position.set(1, 5, 1);
         this.luzDir1.castShadow = true;
         this.luzDir1.shadow.mapSize.width = 2048;
         this.luzDir1.shadow.mapSize.height = 2048;
@@ -54,33 +39,25 @@ class EscenaPatio {
         this.scene.add(this.luzDir1);
 
         this.luzDir2 = new THREE.DirectionalLight(0x88aaff, 0.3);
-        this.luzDir2.position.set(this.offsetX - 1, 3, -1);
+        this.luzDir2.position.set(-1, 3, -1);
         this.scene.add(this.luzDir2);
 
-        // Grua (referencia, se inicializa desde main.js)
         this.grua = null;
 
-        // Sliders y botones VR del patio
         this.slidersVR = [];
         this.botonesAccion = [];
 
-        // Construir
         this.crearPatioIndustrial();
         this.crearPanelD_GruaSliders();
         this.crearPanelE_GruaAcciones();
         this.crearPanelF_GruaValores();
 
-        // Empezar oculto
         this.ocultar();
     }
 
-    // ==========================================
-    // PATIO INDUSTRIAL
-    // ==========================================
     crearPatioIndustrial() {
         const grupo = this.grupoIndustrial;
 
-        // Piso
         const piso = new THREE.Mesh(
             new THREE.PlaneGeometry(60, 60),
             new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.95 })
@@ -89,12 +66,10 @@ class EscenaPatio {
         piso.receiveShadow = true;
         grupo.add(piso);
 
-        // Rejilla
         const grid = new THREE.GridHelper(60, 120, 0x3a3a3a, 0x2a2a2a);
         grid.position.y = 0.002;
         grupo.add(grid);
 
-        // Contenedores
         const coloresCont = [0xcc3333, 0x3333cc, 0x33cc33, 0xcccc33, 0xcc6633, 0x8833cc];
         for (let i = 0; i < 30; i++) {
             const w = 0.8 + Math.random() * 0.5;
@@ -114,7 +89,6 @@ class EscenaPatio {
             cont.castShadow = true;
             grupo.add(cont);
 
-            // Apilar un segundo
             if (Math.random() > 0.5) {
                 const cont2 = cont.clone();
                 cont2.position.y = hh + hh / 2;
@@ -126,7 +100,6 @@ class EscenaPatio {
             }
         }
 
-        // Otras grúas lejanas al fondo
         for (let i = 0; i < 4; i++) {
             const x = -12 + i * 8;
             const z = -20;
@@ -145,7 +118,6 @@ class EscenaPatio {
             grupo.add(brazo2);
         }
 
-        // Luces de obra
         for (let i = 0; i < 12; i++) {
             const angulo = (i / 12) * Math.PI * 2;
             const radio = 15;
@@ -168,7 +140,6 @@ class EscenaPatio {
             grupo.add(luzObra);
         }
 
-        // Cielo nocturno con estrellas
         const geoEstrellas = new THREE.BufferGeometry();
         const numEstrellas = 500;
         const posiciones = new Float32Array(numEstrellas * 3);
@@ -188,9 +159,6 @@ class EscenaPatio {
         grupo.add(estrellas);
     }
 
-    // ==========================================
-    // PANTALLA DE VALORES DE LA GRÚA (panel F)
-    // ==========================================
     crearPanelF_GruaValores() {
         const grupo = this.grupoPanelF;
 
@@ -274,9 +242,6 @@ class EscenaPatio {
         this.texturaPanelF.needsUpdate = true;
     }
 
-    // ==========================================
-    // CREAR SLIDER (recibe grupoPadre)
-    // ==========================================
     crearSlider(grupoPadre, x, y, z, tipo, etiqueta, color, min, max, valorInicial, rotY) {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
@@ -363,9 +328,6 @@ class EscenaPatio {
         this.slidersVR.push(perilla);
     }
 
-    // ==========================================
-    // CREAR BOTÓN DE ACCIÓN
-    // ==========================================
     crearBotonAccion(grupoPadre, x, y, z, accion, etiqueta, color, rotY) {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
@@ -417,9 +379,6 @@ class EscenaPatio {
         this.botonesAccion.push(zonaColision);
     }
 
-    // ==========================================
-    // PANEL D - Sliders de la grúa (frente)
-    // ==========================================
     crearPanelD_GruaSliders() {
         const grupo = this.grupoPanelD;
 
@@ -462,9 +421,6 @@ class EscenaPatio {
         this.crearSlider(grupo, 0, 1.22, -1.36, 'elevacion', 'ELEVACIÓN', 0xffcc00, -1, 1, 0, 0);
     }
 
-    // ==========================================
-    // PANEL E - Botones de la grúa (izquierda)
-    // ==========================================
     crearPanelE_GruaAcciones() {
         const grupo = this.grupoPanelE;
 
@@ -508,9 +464,6 @@ class EscenaPatio {
         this.crearBotonAccion(grupo, -1.42, 1.45, 0.08, 'volver', '↩️ VOLVER', 0x4ecca3, Math.PI / 3);
     }
 
-    // ==========================================
-    // MOSTRAR / OCULTAR
-    // ==========================================
     mostrar() {
         this.grupoIndustrial.visible = true;
         this.grupoGrua.visible = true;
@@ -530,11 +483,7 @@ class EscenaPatio {
         this.grupoPanelF.visible = false;
     }
 
-    // ==========================================
-    // ACTUALIZAR (llamado desde main.js)
-    // ==========================================
     actualizar(dt) {
-        // Actualizar la pantalla de la grúa
         this.dibujarPanelF();
     }
 }

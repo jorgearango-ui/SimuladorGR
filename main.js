@@ -1,29 +1,16 @@
 // ============================================
-// MÓDULO PRINCIPAL - ORQUESTADOR
-// ============================================
-// Maneja:
-// - El renderer compartido
-// - El laboratorio (Local 1) y el patio (Local 2)
-// - El teletransporte entre locales con fade + whoosh
-// - Los controles VR (sliders, botones cicladores, botones de acción)
-// - El XRRig (para trasladar al jugador en VR)
-// - El loop principal de animación
+// MÓDULO PRINCIPAL
 // ============================================
 
-// ============================================
-// VARIABLES GLOBALES
-// ============================================
-let escena = null;         // Local 1: laboratorio
-let escenaPatio = null;    // Local 2: patio industrial
+let escena = null;
+let escenaPatio = null;
 let grua = null;
 let renderer = null;
-let xrRig = null;          // Grupo del XR (contiene cámara VR)
 
 let ultimoTiempoGrua = 0;
 let ultimoTiempoFrame = 0;
 let explotado = false;
 
-// Estado del simulador
 const estado = {
     longitud: 10,
     diametro: 5,
@@ -35,8 +22,8 @@ const estado = {
     temperatura: 25,
     equipada: false,
     resultado: null,
-    modo: 'diseno',       // 'diseno' o 'grua'
-    localActual: 'lab'    // 'lab' o 'patio'
+    modo: 'diseno',
+    localActual: 'lab'
 };
 
 window.estadoModo = 'diseno';
@@ -45,24 +32,19 @@ window.estadoModo = 'diseno';
 // TELETRANSPORTE ENTRE LOCALES
 // ============================================
 function trasladarA(local) {
-    // Si ya estamos en ese local, no hacer nada
     if (estado.localActual === local) return;
 
     const fade = document.getElementById('fade-transicion');
     if (!fade) return;
 
-    // 1. Fade a negro
     fade.classList.add('activo');
 
-    // 2. Reproducir sonido de whoosh
     if (sonido) {
         sonido.iniciado = true;
         sonido.whoosh();
     }
 
-    // 3. Esperar 0.5s (mitad del fade) y teletransportar
     setTimeout(() => {
-        // Cambiar visibilidad de los locales
         if (local === 'patio') {
             if (escena) escena.ocultar();
             if (escenaPatio) escenaPatio.mostrar();
@@ -71,22 +53,14 @@ function trasladarA(local) {
 
             document.getElementById('modo-indicador').textContent = '🏗️ PATIO INDUSTRIAL';
             document.getElementById('modo-indicador').style.color = '#ff8c00';
-            document.getElementById('modo-indicador').style.background = 'rgba(0,0,0,0.7)';
 
-            // Cámara en PC: vista del patio
             if (escena && escena.camera) {
-                escena.camera.position.set(VR_LOCAL_PATIO + 0.5, 2.5, 9);
+                escena.camera.position.set(0.5, 2.5, 9);
                 if (escena.controls) {
-                    escena.controls.target.set(VR_LOCAL_PATIO - 0.3, 1.0, 2.5);
+                    escena.controls.target.set(-0.3, 1.0, 2.5);
                     escena.controls.update();
                 }
             }
-
-            // En VR: mover el XRRig
-            if (xrRig) {
-                xrRig.position.set(VR_LOCAL_PATIO, 0, 0);
-            }
-
         } else {
             if (escenaPatio) escenaPatio.ocultar();
             if (escena) escena.mostrar();
@@ -95,7 +69,6 @@ function trasladarA(local) {
 
             document.getElementById('modo-indicador').textContent = '📐 LABORATORIO';
             document.getElementById('modo-indicador').style.color = '#4ecca3';
-            document.getElementById('modo-indicador').style.background = 'rgba(0,0,0,0.7)';
 
             if (escena && escena.camera) {
                 escena.camera.position.set(0.5, 1.5, 2.5);
@@ -104,13 +77,8 @@ function trasladarA(local) {
                     escena.controls.update();
                 }
             }
-
-            if (xrRig) {
-                xrRig.position.set(VR_LOCAL_LAB, 0, 0);
-            }
         }
 
-        // 4. Quitar fade
         setTimeout(() => {
             fade.classList.remove('activo');
         }, 300);
@@ -118,7 +86,7 @@ function trasladarA(local) {
 }
 
 // ============================================
-// VINCULACIÓN DE CONTROLES HTML
+// VINCULACIÓN DE CONTROLES
 // ============================================
 function vincularSlider(id, key, formato) {
     if (!formato) formato = v => v.toFixed(1);
@@ -150,14 +118,12 @@ function actualizarTodo() {
     }
     r.temperatura = estado.temperatura;
 
-    // Redibujar la escena del laboratorio solo si estamos ahí
     if (estado.localActual === 'lab' && escena) {
         escena.dibujarEscenaDiseno(estado, r);
         escena.dibujarCampo(r.B_ideal, r.saturado);
         escena.dibujarElectrones(estado.corriente);
     }
 
-    // HUD HTML
     document.getElementById('hud-V').textContent = r.V.toFixed(2);
     document.getElementById('hud-B-ideal').textContent = r.B_ideal.toFixed(4);
     document.getElementById('hud-F').textContent = r.F_ideal.toFixed(2);
@@ -193,7 +159,6 @@ function actualizarTodo() {
         avisoSat.classList.add('oculto');
     }
 
-    // Sonido
     if (estado.corriente > 0 && sonido) {
         sonido.iniciar();
         sonido.setCorriente(estado.corriente, 30);
@@ -201,7 +166,6 @@ function actualizarTodo() {
         sonido.setCorriente(0, 30);
     }
 
-    // Alerta
     const alerta = document.getElementById('alerta-peligro');
     if (estado.temperatura > 150) {
         alerta.classList.remove('oculto');
@@ -210,12 +174,10 @@ function actualizarTodo() {
         alerta.classList.add('oculto');
     }
 
-    // Explosión
     if (estado.temperatura > T_FUSION_CU || (r.sobrecorriente && estado.temperatura > 200)) {
         explotar();
     }
 
-    // Actualizar luces del panel flotante
     actualizarLucesPanel();
     actualizarPantallaDigital();
 }
@@ -241,7 +203,6 @@ function actualizarPantallaDigital() {
 
     ctx.fillStyle = '#0a0f0a';
     ctx.fillRect(0, 0, 512, 256);
-
     ctx.strokeStyle = '#00ff88';
     ctx.lineWidth = 3;
     ctx.strokeRect(6, 6, 500, 244);
@@ -279,9 +240,6 @@ function actualizarPantallaDigital() {
     ctx.fillText(`${estado.temperatura.toFixed(0)} °C`, 480, 210);
 }
 
-// ============================================
-// EXPLOSIÓN
-// ============================================
 function explotar() {
     if (explotado) return;
     explotado = true;
@@ -321,7 +279,7 @@ function explotar() {
 }
 
 // ============================================
-// CONTROLES DEL PANEL FLOTANTE HTML
+// CONTROLES HTML DE LA GRÚA
 // ============================================
 function conectarControlesGrua() {
     const ctrlPotencia = document.getElementById('ctrl-potencia');
@@ -377,25 +335,21 @@ function conectarControlesGrua() {
 }
 
 // ============================================
-// ACCIONES DESDE VR (llamadas desde escena.js y escenaPatio.js)
+// ACCIONES DESDE VR
 // ============================================
 window.equiparGrua = function () {
     if (!estado.resultado) return;
     estado.equipada = true;
 
-    // Crear la grúa si no existe
     if (!grua) {
         grua = new GruaElectromagnetica(escenaPatio);
     }
     grua.equipar(estado, estado.resultado);
 
-    // Mostrar el panel flotante HTML
     const panel = document.getElementById('panel-grua-flotante');
     if (panel) panel.classList.add('visible');
 
-    // Teletransportar al patio
     trasladarA('patio');
-
     console.log("🏗️ Modo grúa activado");
 };
 
@@ -403,18 +357,15 @@ window.volverDiseno = function () {
     estado.equipada = false;
     if (grua) grua.soltarPeso();
 
-    // Ocultar el panel flotante
     const panel = document.getElementById('panel-grua-flotante');
     if (panel) panel.classList.remove('visible');
 
-    // Teletransportar al laboratorio
     trasladarA('lab');
-
     console.log("📐 Modo diseño activado");
 };
 
 // ============================================
-// CONFIGURACIÓN DEL BOTÓN VR
+// BOTÓN VR
 // ============================================
 function configurarBotonVR() {
     const btnVR = document.getElementById('btn-entrar-vr');
@@ -455,13 +406,12 @@ function configurarBotonVR() {
 }
 
 // ============================================
-// INTERACCIÓN VR CON SLIDERS Y BOTONES
+// CONTROLADORES VR
 // ============================================
 function conectarControladoresVR() {
     for (let i = 0; i < 2; i++) {
         const controller = renderer.xr.getController(i);
 
-        // Rayo visible
         const rayoGeometry = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(0, 0, 0),
             new THREE.Vector3(0, 0, -5)
@@ -472,7 +422,6 @@ function conectarControladoresVR() {
         );
         controller.add(rayo);
 
-        // Punto en la punta del rayo
         const punto = new THREE.Mesh(
             new THREE.SphereGeometry(0.01, 8, 8),
             new THREE.MeshBasicMaterial({ color: 0xffcc00 })
@@ -480,11 +429,10 @@ function conectarControladoresVR() {
         punto.position.set(0, 0, -1);
         controller.add(punto);
 
-        // Eventos
         controller.addEventListener('selectstart', () => onGatilloPresionado(controller));
         controller.addEventListener('selectend', () => onGatilloSoltado());
 
-        xrRig.add(controller);
+        escena.scene.add(controller);
     }
 }
 
@@ -495,7 +443,6 @@ function onGatilloPresionado(controller) {
     raycasterVR.setFromXRController(controller);
     raycasterVR.far = 8;
 
-    // Buscar sliders
     let todosLosSliders = [];
     if (escena && escena.slidersVR) todosLosSliders = todosLosSliders.concat(escena.slidersVR);
     if (escenaPatio && escenaPatio.slidersVR) todosLosSliders = todosLosSliders.concat(escenaPatio.slidersVR);
@@ -506,7 +453,6 @@ function onGatilloPresionado(controller) {
         return;
     }
 
-    // Buscar botones cicladores (solo laboratorio)
     if (escena && escena.botonesCiclicos) {
         const intersectBotones = raycasterVR.intersectObjects(escena.botonesCiclicos, true);
         if (intersectBotones.length > 0) {
@@ -519,7 +465,6 @@ function onGatilloPresionado(controller) {
         }
     }
 
-    // Buscar botones de acción (laboratorio + patio)
     let todosLosBotones = [];
     if (escena && escena.botonesAccion) todosLosBotones = todosLosBotones.concat(escena.botonesAccion);
     if (escenaPatio && escenaPatio.botonesAccion) todosLosBotones = todosLosBotones.concat(escenaPatio.botonesAccion);
@@ -546,7 +491,6 @@ function ciclarBotonVR(boton) {
     boton.userData.indice = nuevoIndice;
     const nuevoValor = opciones[nuevoIndice];
 
-    // Actualizar texto
     const tm = boton.userData.textoMesh;
     if (tm) {
         const textura = tm.material.map;
@@ -565,7 +509,6 @@ function ciclarBotonVR(boton) {
         textura.needsUpdate = true;
     }
 
-    // Aplicar al estado
     if (tipo === 'awg') {
         estado.awg = parseInt(nuevoValor);
         const sel = document.getElementById('calibre');
@@ -584,7 +527,6 @@ function ciclarBotonVR(boton) {
 
 function ejecutarAccionVR(accion) {
     console.log('Acción VR:', accion);
-
     if (accion === 'guardar') {
         if (typeof generarInforme === 'function' && estado.resultado) {
             generarInforme(estado, estado.resultado);
@@ -598,9 +540,6 @@ function ejecutarAccionVR(accion) {
     }
 }
 
-// ============================================
-// ACTUALIZAR SLIDER VR (llamado desde el loop)
-// ============================================
 function actualizarSliderVR(perilla, valorNuevo) {
     const min = perilla.userData.min;
     const max = perilla.userData.max;
@@ -656,35 +595,30 @@ function actualizarSliderVR(perilla, valorNuevo) {
     } else if (tipo === 'elevacion' && grua) {
         grua.control = valorClamp;
     }
-
     actualizarTodo();
 }
 
 // ============================================
-// LOOP PRINCIPAL
+// LOOP
 // ============================================
 function loop(tiempo) {
     const dt = Math.min((tiempo - ultimoTiempoFrame) / 1000, 0.1);
     ultimoTiempoFrame = tiempo;
 
-    // Actualizar la escena del laboratorio
     if (escena && estado.localActual === 'lab') {
         escena.actualizar(dt);
     }
 
-    // Actualizar la escena del patio
     if (escenaPatio && estado.localActual === 'patio') {
         escenaPatio.actualizar(dt);
     }
 
-    // Actualizar la grúa
     if (grua && grua.equipada && estado.localActual === 'patio') {
         const dtGrua = Math.min((tiempo - ultimoTiempoGrua) / 1000, 0.1);
         grua.actualizar(grua.control, dtGrua);
     }
     ultimoTiempoGrua = tiempo;
 
-    // Actualizar sliders VR activos
     if (sliderVR_Activo && renderer.xr.isPresenting) {
         for (let i = 0; i < 2; i++) {
             const controller = renderer.xr.getController(i);
@@ -702,15 +636,13 @@ function loop(tiempo) {
         }
     }
 
-    // Actualizar OrbitControls
     if (escena && escena.controls && estado.localActual === 'lab') {
         escena.controls.update();
     }
-    if (escenaPatio && estado.localActual === 'patio' && escena && escena.controls) {
+    if (escena && escena.controls && estado.localActual === 'patio') {
         escena.controls.update();
     }
 
-    // Renderizar
     if (renderer && escena && escena.camera) {
         renderer.render(escena.scene, escena.camera);
     }
@@ -727,7 +659,7 @@ window.addEventListener('load', () => {
         return;
     }
 
-    // Crear renderer compartido
+    // Renderer compartido
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(contenedor.clientWidth, contenedor.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -737,31 +669,25 @@ window.addEventListener('load', () => {
     renderer.xr.setReferenceSpaceType('local-floor');
     contenedor.appendChild(renderer.domElement);
 
-    // Crear XRRig (solo se usa en VR)
-    xrRig = new THREE.Group();
-    xrRig.add(renderer.xr.getCamera());
-    // NOTA: XRRig no se añade a la escena directamente, Three.js lo maneja.
-
-    // Crear escena del laboratorio (Local 1)
+    // Escena laboratorio
     escena = new Escena3D(contenedor, renderer);
 
-    // Crear escena del patio (Local 2)
+    // Escena patio (comparte la misma scene)
     escenaPatio = new EscenaPatio(escena.scene);
 
     // Sonido
     sonido = new SonidoSimulador();
 
-    // Crear grúa (pero no equipar todavía)
+    // Grúa
     grua = new GruaElectromagnetica(escenaPatio);
     escenaPatio.grua = grua;
 
-    // Vincular sliders HTML
+    // Vincular controles HTML
     vincularSlider('longitud', 'longitud');
     vincularSlider('diametro', 'diametro');
     vincularSlider('vueltas', 'vueltas', v => v.toFixed(0));
     vincularSlider('corriente', 'corriente');
 
-    // Vincular selects HTML
     document.getElementById('calibre').addEventListener('change', e => {
         estado.awg = parseInt(e.target.value);
         actualizarTodo();
@@ -775,7 +701,6 @@ window.addEventListener('load', () => {
         actualizarTodo();
     });
 
-    // Botones principales HTML
     document.getElementById('btn-guardar').addEventListener('click', () => {
         if (estado.resultado) generarInforme(estado, estado.resultado);
     });
@@ -792,7 +717,6 @@ window.addEventListener('load', () => {
         if (grua) grua.soltarPeso();
     });
 
-    // Botón toggle panel HTML
     const panelControl = document.getElementById('panel-control');
     const btnToggle = document.getElementById('btn-toggle-panel');
     if (btnToggle) {
@@ -807,7 +731,6 @@ window.addEventListener('load', () => {
         });
     }
 
-    // Resize
     window.addEventListener('resize', () => {
         if (escena && escena.camera) {
             const w = contenedor.clientWidth;
@@ -818,26 +741,19 @@ window.addEventListener('load', () => {
         }
     });
 
-    // Conectar controles del panel HTML de grúa
     conectarControlesGrua();
-
-    // Configurar botón VR
     configurarBotonVR();
-
-    // Conectar controladores VR
     conectarControladoresVR();
 
-    // Estado inicial: laboratorio visible, patio oculto
+    // Estado inicial
     escena.mostrar();
     if (escenaPatio) escenaPatio.ocultar();
     estado.localActual = 'lab';
 
-    // Loop principal
     actualizarTodo();
     ultimoTiempoFrame = performance.now();
     ultimoTiempoGrua = performance.now();
     renderer.setAnimationLoop(loop);
 
     console.log("✅ Simulador iniciado correctamente");
-    console.log("📐 Laboratorio activo. Pulsa 'Equipar en la Grúa' para ir al patio.");
 });
