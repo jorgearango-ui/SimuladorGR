@@ -1,5 +1,5 @@
 // ============================================
-// MÓDULO PRINCIPAL - VERSIÓN CORREGIDA VR
+// MÓDULO PRINCIPAL - VERSIÓN CORREGIDA
 // ============================================
 
 let escena = null;
@@ -397,15 +397,8 @@ function configurarBotonVR() {
                 renderer.xr.setSession(session);
                 console.log("🥽 Sesión VR iniciada");
 
-                setTimeout(() => {
-                    if (escena && escena.grupoPanelA) {
-                        console.log("📐 Paneles VR listos");
-                    }
-                }, 500);
-
                 session.addEventListener('end', () => {
                     console.log("🥽 Sesión VR terminada");
-                    // ✅ FIX: limpiar estado de sliders al salir de VR
                     sliderVR_Activo = null;
                     controllerVR_Activo = null;
                 });
@@ -446,7 +439,6 @@ function configurarMousePC() {
 
         const intersectSliders = raycasterMouse.intersectObjects(todosLosSliders, true);
         if (intersectSliders.length > 0) {
-            // ✅ FIX: subir al objeto con grupoPadre
             let obj = intersectSliders[0].object;
             while (obj && !obj.userData.grupoPadre && obj.parent) obj = obj.parent;
             if (obj && obj.userData.grupoPadre) {
@@ -468,16 +460,16 @@ function configurarMousePC() {
             }
         }
 
-        // 3. Botones de acción
+        // 3. Botones de acción — ✅ FIX: buscar userData.accion
         let todosLosBotones = [];
         if (escena && escena.botonesAccion) todosLosBotones = todosLosBotones.concat(escena.botonesAccion);
         if (escenaPatio && escenaPatio.botonesAccion) todosLosBotones = todosLosBotones.concat(escenaPatio.botonesAccion);
 
-        const intersectAccion = raycasterMouse.intersectObjects(todosLosBotones, false);
+        const intersectAccion = raycasterMouse.intersectObjects(todosLosBotones, true);
         if (intersectAccion.length > 0) {
             let obj = intersectAccion[0].object;
-            while (obj && !obj.userData.esBotonAccion && obj.parent) obj = obj.parent;
-            if (obj && obj.userData.esBotonAccion) {
+            while (obj && !obj.userData.accion && obj.parent) obj = obj.parent;
+            if (obj && obj.userData.accion) {
                 ejecutarAccionVR(obj.userData.accion);
                 return;
             }
@@ -517,7 +509,7 @@ function configurarMousePC() {
             let todosLosBotones = [];
             if (escena && escena.botonesAccion) todosLosBotones = todosLosBotones.concat(escena.botonesAccion);
             if (escenaPatio && escenaPatio.botonesAccion) todosLosBotones = todosLosBotones.concat(escenaPatio.botonesAccion);
-            if (raycasterMouse.intersectObjects(todosLosBotones, false).length > 0) sobreAlgo = true;
+            if (raycasterMouse.intersectObjects(todosLosBotones, true).length > 0) sobreAlgo = true;
         }
 
         canvas.style.cursor = sobreAlgo ? 'pointer' : 'default';
@@ -529,14 +521,11 @@ function configurarMousePC() {
 }
 
 // ============================================
-// CONTROLADORES VR - VERSIÓN CORREGIDA ✅
+// CONTROLADORES VR
 // ============================================
-
-// ✅ FIX: guardamos también qué controlador agarró el slider
 let sliderVR_Activo = null;
 let controllerVR_Activo = null;
 
-// ✅ FIX: función robusta que reemplaza setFromXRController
 function rayoDesdeController(controller) {
     const tempMatrix = new THREE.Matrix4();
     tempMatrix.identity().extractRotation(controller.matrixWorld);
@@ -574,7 +563,6 @@ function conectarControladoresVR() {
         escena.scene.add(controller);
     }
 
-    // ✅ FIX: configurar mouse PC una sola vez (fuera del bucle)
     configurarMousePC();
 }
 
@@ -590,7 +578,6 @@ function onGatilloPresionado(controller) {
 
     const intersectSliders = rayo.intersectObjects(todosLosSliders, true);
     if (intersectSliders.length > 0) {
-        // ✅ FIX: subir al objeto que realmente tenga grupoPadre (la perilla)
         let obj = intersectSliders[0].object;
         while (obj && !obj.userData.grupoPadre && obj.parent) obj = obj.parent;
         if (obj && obj.userData.grupoPadre) {
@@ -614,16 +601,16 @@ function onGatilloPresionado(controller) {
         }
     }
 
-    // 3. Botones de acción
+    // 3. Botones de acción — ✅ FIX: buscar userData.accion
     let todosLosBotones = [];
     if (escena && escena.botonesAccion) todosLosBotones = todosLosBotones.concat(escena.botonesAccion);
     if (escenaPatio && escenaPatio.botonesAccion) todosLosBotones = todosLosBotones.concat(escenaPatio.botonesAccion);
 
-    const intersectAccion = rayo.intersectObjects(todosLosBotones, false);
+    const intersectAccion = rayo.intersectObjects(todosLosBotones, true);
     if (intersectAccion.length > 0) {
         let obj = intersectAccion[0].object;
-        while (obj && !obj.userData.esBotonAccion && obj.parent) obj = obj.parent;
-        if (obj && obj.userData.esBotonAccion) {
+        while (obj && !obj.userData.accion && obj.parent) obj = obj.parent;
+        if (obj && obj.userData.accion) {
             ejecutarAccionVR(obj.userData.accion);
             return;
         }
@@ -631,7 +618,6 @@ function onGatilloPresionado(controller) {
 }
 
 function onGatilloSoltado() {
-    // ✅ FIX: limpiar ambos estados
     sliderVR_Activo = null;
     controllerVR_Activo = null;
 }
@@ -771,10 +757,6 @@ function loop(tiempo) {
     }
     ultimoTiempoGrua = tiempo;
 
-    // ============================================
-    // ✅ FIX: Actualización del slider agarrado en VR
-    // Solo usa el controlador que realmente lo agarró
-    // ============================================
     if (sliderVR_Activo && controllerVR_Activo && renderer.xr.isPresenting) {
         const rayo = rayoDesdeController(controllerVR_Activo);
         const grupoPadre = sliderVR_Activo.userData.grupoPadre;
@@ -784,14 +766,10 @@ function loop(tiempo) {
             if (intersect.length > 0) {
                 const puntoMundo = intersect[0].point.clone();
                 const puntoLocal = grupoPadre.worldToLocal(puntoMundo);
-
-                // El rango local del slider es [-0.25, +0.25] en X
                 const t = Math.max(0, Math.min(1, (puntoLocal.x + 0.25) / 0.5));
-
                 const min = sliderVR_Activo.userData.min;
                 const max = sliderVR_Activo.userData.max;
                 const valorNuevo = min + t * (max - min);
-
                 actualizarSliderVR(sliderVR_Activo, valorNuevo);
             }
         }

@@ -378,6 +378,7 @@ class Escena3D {
         const grupo = new THREE.Group();
         grupo.position.set(x, y, z);
         grupo.rotation.y = rotY || 0;
+        // ✅ FIX: la acción vive en el GRUPO para que el while pueda encontrarla
         grupo.userData.esBotonAccion = true;
         grupo.userData.accion = accion;
 
@@ -391,7 +392,7 @@ class Escena3D {
                 emissiveIntensity: 0.3
             })
         );
-        caja.userData.esBotonAccion = true;
+        // ✅ FIX: no marcamos la caja, para que el while suba al grupo
         grupo.add(caja);
 
         const canvas = document.createElement('canvas');
@@ -411,18 +412,18 @@ class Escena3D {
             new THREE.MeshBasicMaterial({ map: textura, transparent: true })
         );
         textoMesh.position.set(0, 0, 0.035);
-        textoMesh.userData.esBotonAccion = true;
         grupo.add(textoMesh);
 
+        // Zona de colisión invisible
         const zonaColision = new THREE.Mesh(
             new THREE.BoxGeometry(0.65, 0.3, 0.15),
             new THREE.MeshBasicMaterial({ visible: false })
         );
-        zonaColision.userData.esBotonAccion = true;
         grupo.add(zonaColision);
 
         grupoPadre.add(grupo);
-        this.botonesAccion.push(zonaColision);
+        // ✅ FIX: registramos el GRUPO (que tiene accion), no la zona
+        this.botonesAccion.push(grupo);
     }
 
     crearPanelA_Sliders() {
@@ -470,21 +471,25 @@ class Escena3D {
     crearPanelB_Botones() {
         const grupo = this.grupoPanelB;
 
+        // ✅ FIX: Group contenedor rotado — TODO el panel cuelga de aquí
+        const panelContenedor = new THREE.Group();
+        panelContenedor.position.set(-1.5, 0, 0);
+        panelContenedor.rotation.y = Math.PI / 3;
+        grupo.add(panelContenedor);
+
         const panel = new THREE.Mesh(
             new THREE.BoxGeometry(0.7, 1.1, 0.05),
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.4 })
         );
-        panel.position.set(-1.5, 1.5, 0);
-        panel.rotation.y = Math.PI / 3;
-        grupo.add(panel);
+        panel.position.set(0, 1.5, 0);
+        panelContenedor.add(panel);
 
         const borde = new THREE.Mesh(
             new THREE.BoxGeometry(0.75, 1.15, 0.02),
             new THREE.MeshStandardMaterial({ color: 0xff8c00, metalness: 0.8, roughness: 0.3 })
         );
-        borde.position.set(-1.5, 1.5, -0.02);
-        borde.rotation.y = Math.PI / 3;
-        grupo.add(borde);
+        borde.position.set(0, 1.5, -0.02);
+        panelContenedor.add(borde);
 
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
@@ -502,37 +507,41 @@ class Escena3D {
             new THREE.PlaneGeometry(0.6, 0.15),
             new THREE.MeshBasicMaterial({ map: texT, transparent: true })
         );
-        titulo.position.set(-1.42, 2.0, 0.08);
-        titulo.rotation.y = Math.PI / 3;
-        grupo.add(titulo);
+        titulo.position.set(0, 2.0, 0.04);
+        panelContenedor.add(titulo);
 
         const indiceAwg = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28].indexOf(estado.awg);
         const indiceNucleo = ['aire', 'hierro', 'ferrita', 'silicio', 'permalloy'].indexOf(estado.nucleo);
         const indiceForma = ['barra', 'u', 'toroidal', 'aire'].indexOf(estado.forma);
 
-        this.crearBotonCiclico(grupo, -1.42, 1.82, 0.08, 'awg', 'CALIBRE (AWG)', 'AWG ' + estado.awg, [10, 12, 14, 16, 18, 20, 22, 24, 26, 28], indiceAwg >= 0 ? indiceAwg : 5, Math.PI / 3);
-        this.crearBotonCiclico(grupo, -1.42, 1.55, 0.08, 'nucleo', 'NÚCLEO', estado.nucleo.toUpperCase(), ['aire', 'hierro', 'ferrita', 'silicio', 'permalloy'], indiceNucleo >= 0 ? indiceNucleo : 1, Math.PI / 3);
-        this.crearBotonCiclico(grupo, -1.42, 1.28, 0.08, 'forma', 'FORMA', estado.forma.toUpperCase(), ['barra', 'u', 'toroidal', 'aire'], indiceForma >= 0 ? indiceForma : 0, Math.PI / 3);
+        // ✅ Botones SIN rotY propio — heredan la rotación del contenedor
+        this.crearBotonCiclico(panelContenedor, 0, 1.82, 0.05, 'awg', 'CALIBRE (AWG)', 'AWG ' + estado.awg, [10, 12, 14, 16, 18, 20, 22, 24, 26, 28], indiceAwg >= 0 ? indiceAwg : 5, 0);
+        this.crearBotonCiclico(panelContenedor, 0, 1.55, 0.05, 'nucleo', 'NÚCLEO', estado.nucleo.toUpperCase(), ['aire', 'hierro', 'ferrita', 'silicio', 'permalloy'], indiceNucleo >= 0 ? indiceNucleo : 1, 0);
+        this.crearBotonCiclico(panelContenedor, 0, 1.28, 0.05, 'forma', 'FORMA', estado.forma.toUpperCase(), ['barra', 'u', 'toroidal', 'aire'], indiceForma >= 0 ? indiceForma : 0, 0);
     }
 
     crearPanelC_Acciones() {
         const grupo = this.grupoPanelC;
 
+        // ✅ FIX: Group contenedor rotado
+        const panelContenedor = new THREE.Group();
+        panelContenedor.position.set(1.5, 0, 0);
+        panelContenedor.rotation.y = -Math.PI / 3;
+        grupo.add(panelContenedor);
+
         const panel = new THREE.Mesh(
             new THREE.BoxGeometry(0.7, 1.1, 0.05),
             new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.7, roughness: 0.4 })
         );
-        panel.position.set(1.5, 1.5, 0);
-        panel.rotation.y = -Math.PI / 3;
-        grupo.add(panel);
+        panel.position.set(0, 1.5, 0);
+        panelContenedor.add(panel);
 
         const borde = new THREE.Mesh(
             new THREE.BoxGeometry(0.75, 1.15, 0.02),
             new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.8, roughness: 0.3 })
         );
-        borde.position.set(1.5, 1.5, -0.02);
-        borde.rotation.y = -Math.PI / 3;
-        grupo.add(borde);
+        borde.position.set(0, 1.5, -0.02);
+        panelContenedor.add(borde);
 
         const canvasTitulo = document.createElement('canvas');
         canvasTitulo.width = 512;
@@ -550,12 +559,12 @@ class Escena3D {
             new THREE.PlaneGeometry(0.6, 0.15),
             new THREE.MeshBasicMaterial({ map: texT, transparent: true })
         );
-        titulo.position.set(1.42, 2.0, 0.08);
-        titulo.rotation.y = -Math.PI / 3;
-        grupo.add(titulo);
+        titulo.position.set(0, 2.0, 0.04);
+        panelContenedor.add(titulo);
 
-        this.crearBotonAccion(grupo, 1.42, 1.75, 0.08, 'guardar', '💾 GUARDAR', 0x4ecca3, -Math.PI / 3);
-        this.crearBotonAccion(grupo, 1.42, 1.45, 0.08, 'equipar', '🏗️ EQUIPAR', 0xffcc00, -Math.PI / 3);
+        // ✅ Botones SIN rotY propio
+        this.crearBotonAccion(panelContenedor, 0, 1.75, 0.05, 'guardar', '💾 GUARDAR', 0x4ecca3, 0);
+        this.crearBotonAccion(panelContenedor, 0, 1.45, 0.05, 'equipar', '🏗️ EQUIPAR', 0xffcc00, 0);
     }
 
     dibujarEscenaDiseno(params, resultado) {
