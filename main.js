@@ -16,7 +16,6 @@
 let escena = null;         // Local 1: laboratorio
 let escenaPatio = null;    // Local 2: patio industrial
 let grua = null;
-let sonido = null;
 let renderer = null;
 let xrRig = null;          // Grupo del XR (contiene cámara VR)
 
