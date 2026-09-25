@@ -447,13 +447,13 @@ function configurarMousePC() {
             }
         }
 
-        // 2. Botones cicladores
+        // 2. Botones cicladores — ✅ FIX: buscar userData.opciones
         if (escena && escena.botonesCiclicos) {
             const intersectBotones = raycasterMouse.intersectObjects(escena.botonesCiclicos, true);
             if (intersectBotones.length > 0) {
                 let obj = intersectBotones[0].object;
-                while (obj && !obj.userData.esBotonCiclico && obj.parent) obj = obj.parent;
-                if (obj && obj.userData.esBotonCiclico) {
+                while (obj && !obj.userData.opciones && obj.parent) obj = obj.parent;
+                if (obj && obj.userData.opciones) {
                     ciclarBotonVR(obj);
                     return;
                 }
@@ -588,13 +588,13 @@ function onGatilloPresionado(controller) {
         }
     }
 
-    // 2. Botones cicladores
+    // 2. Botones cicladores — ✅ FIX: buscar userData.opciones
     if (escena && escena.botonesCiclicos) {
         const intersectBotones = rayo.intersectObjects(escena.botonesCiclicos, true);
         if (intersectBotones.length > 0) {
             let obj = intersectBotones[0].object;
-            while (obj && !obj.userData.esBotonCiclico && obj.parent) obj = obj.parent;
-            if (obj && obj.userData.esBotonCiclico) {
+            while (obj && !obj.userData.opciones && obj.parent) obj = obj.parent;
+            if (obj && obj.userData.opciones) {
                 ciclarBotonVR(obj);
                 return;
             }
