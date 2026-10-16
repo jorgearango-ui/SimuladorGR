@@ -115,9 +115,6 @@
         }
         #flash-explosion.activo { opacity: 1; }
 
-        /* ============================================
-           FADE DE TRANSICIÓN ENTRE LOCALES
-           ============================================ */
         #fade-transicion {
             position: absolute;
             inset: 0;
@@ -339,10 +336,9 @@
                 </label>
                 <label>Forma del núcleo:
                     <select id="forma">
+                        <option value="aire">Solenoide sin núcleo</option>
                         <option value="barra" selected>Barra recta</option>
                         <option value="u">U / Herradura</option>
-                        <option value="toroidal">Toroidal</option>
-                        <option value="aire">Sin núcleo (aire)</option>
                     </select>
                 </label>
                 <div id="aviso-capas" class="oculto"></div>
@@ -352,24 +348,29 @@
 
             <section id="modulo-energizacion">
                 <h3>2. Energización</h3>
-                <label>Corriente (A):
-                    <input type="range" id="corriente" min="0" max="30" value="0" step="0.1">
-                    <span id="corriente-val">0.0</span>
+                <label>Voltaje de la fuente (V):
+                    <input type="range" id="voltaje" min="0" max="50" value="0" step="0.1">
+                    <span id="voltaje-val">0.0</span>
                 </label>
                 <div class="hud">
                     <div class="hud-seccion">
+                        <div class="hud-titulo">🔌 ALIMENTACIÓN</div>
+                        <div><strong>Voltaje fuente:</strong> <span id="hud-V">0.00</span> V</div>
+                        <div><strong>Corriente resultante:</strong> <span id="hud-I">0.00</span> A</div>
+                        <div><strong>Resistencia bobina:</strong> <span id="hud-R">0.00</span> Ω</div>
+                    </div>
+                    <div class="hud-seccion">
                         <div class="hud-titulo">⚙️ MODELO IDEAL</div>
-                        <div><strong>Voltaje:</strong> <span id="hud-V">0.00</span> V</div>
                         <div><strong>B ideal:</strong> <span id="hud-B-ideal">0.00</span> T</div>
                         <div><strong>Fuerza ideal:</strong> <span id="hud-F">0.00</span> N</div>
-                        <div><strong>Peso máx ideal:</strong> <span id="hud-m">0.00</span> kg</div>
+                        <div><strong>Peso máx ideal:</strong> <span id="hud-m">0.00</span></div>
                     </div>
                     <div class="hud-seccion hud-real">
                         <div class="hud-titulo">🔬 MODELO REALISTA</div>
                         <div><strong>B real:</strong> <span id="hud-B-real">0.00</span> T</div>
                         <div><strong>Fuerza real:</strong> <span id="hud-F-real">0.00</span> N</div>
-                        <div><strong>Peso máx real:</strong> <span id="hud-m-real">0.00</span> g</div>
-                        <div><strong>Factor k:</strong> <span id="hud-k">0.00</span></div>
+                        <div><strong>Peso máx real:</strong> <span id="hud-m-real">0.00</span></div>
+                        <div><strong>N° polos:</strong> <span id="hud-polos">1</span></div>
                     </div>
                     <div class="hud-seccion">
                         <div><strong>Potencia:</strong> <span id="hud-P">0.00</span> W</div>
@@ -408,10 +409,10 @@
 
                 <div class="control-grua potencia">
                     <label>
-                        <span>⚡ POTENCIA</span>
-                        <span class="valor" id="val-potencia">0.0 A</span>
+                        <span>⚡ VOLTAJE</span>
+                        <span class="valor" id="val-voltaje">0.0 V</span>
                     </label>
-                    <input type="range" id="ctrl-potencia" min="0" max="30" value="0" step="0.1">
+                    <input type="range" id="ctrl-voltaje" min="0" max="50" value="0" step="0.1">
                 </div>
 
                 <div class="control-grua rotacion">
@@ -449,7 +450,6 @@
         </main>
     </div>
 
-    <!-- Scripts (el orden importa) -->
     <script src="fisica.js"></script>
     <script src="escena.js"></script>
     <script src="escenaPatio.js"></script>

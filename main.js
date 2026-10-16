@@ -1,5 +1,5 @@
 // ============================================
-// MÓDULO PRINCIPAL - VERSIÓN CORREGIDA
+// MÓDULO PRINCIPAL - FUENTE DE VOLTAJE
 // ============================================
 
 let escena = null;
@@ -18,7 +18,7 @@ const estado = {
     awg: 20,
     nucleo: 'hierro',
     forma: 'barra',
-    corriente: 0,
+    voltaje: 0,
     temperatura: 25,
     equipada: false,
     resultado: null,
@@ -55,13 +55,12 @@ function trasladarA(local) {
             document.getElementById('modo-indicador').style.color = '#ff8c00';
 
             if (escena && escena.camera) {
-    // ✅ FIX: cámara del patio mirando hacia -z (donde está todo ahora)
-    escena.camera.position.set(0, 2.2, 3.5);
-    if (escena.controls) {
-        escena.controls.target.set(0, 1.2, -2.0);
-        escena.controls.update();
-    }
-}
+                escena.camera.position.set(0, 2.2, 3.5);
+                if (escena.controls) {
+                    escena.controls.target.set(0, 1.2, -2.0);
+                    escena.controls.update();
+                }
+            }
         } else {
             if (escenaPatio) escenaPatio.ocultar();
             if (escena) escena.mostrar();
@@ -109,10 +108,10 @@ function actualizarTodo() {
     const diametroTuboM = estado.diametro / 100;
     const radioVisual = calcularRadioVisual(awg, diametroTuboM);
 
-    const r = calcularBobina(estado, radioVisual);
+    const r = calcularBobina(estado, radioVisual, estado.voltaje);
     estado.resultado = r;
 
-    if (estado.corriente > 0) {
+    if (r.I > 0.01) {
         estado.temperatura = calcularTemperatura(r.P, r.masa_cu, 0.1, estado.temperatura);
     } else {
         estado.temperatura = Math.max(25, estado.temperatura - 5);
@@ -122,17 +121,22 @@ function actualizarTodo() {
     if (estado.localActual === 'lab' && escena) {
         escena.dibujarEscenaDiseno(estado, r);
         escena.dibujarCampo(r.B_ideal, r.saturado);
-        escena.dibujarElectrones(estado.corriente);
+        escena.dibujarElectrones(r.I);
     }
 
     document.getElementById('hud-V').textContent = r.V.toFixed(2);
+    document.getElementById('hud-I').textContent = r.I.toFixed(3);
+    document.getElementById('hud-R').textContent = r.R.toFixed(4);
+
     document.getElementById('hud-B-ideal').textContent = r.B_ideal.toFixed(4);
     document.getElementById('hud-F').textContent = r.F_ideal.toFixed(2);
-    document.getElementById('hud-m').textContent = r.m_max_ideal.toFixed(2);
+    document.getElementById('hud-m').textContent = formatearPeso(r.m_max_ideal);
+
     document.getElementById('hud-B-real').textContent = r.B_real.toExponential(3);
     document.getElementById('hud-F-real').textContent = r.F_real.toExponential(3);
-    document.getElementById('hud-m-real').textContent = (r.m_max_real * 1000).toFixed(4);
-    document.getElementById('hud-k').textContent = r.k.toFixed(4);
+    document.getElementById('hud-m-real').textContent = formatearPeso(r.m_max_real);
+    document.getElementById('hud-polos').textContent = r.N_polos;
+
     document.getElementById('hud-P').textContent = r.P.toFixed(2);
     document.getElementById('hud-T').textContent = estado.temperatura.toFixed(0);
     document.getElementById('hud-sat').textContent = r.saturado ? 'SÍ ⚠️' : 'No';
@@ -154,15 +158,15 @@ function actualizarTodo() {
     }
 
     const avisoSat = document.getElementById('aviso-saturacion');
-    if (r.saturado && estado.corriente > 0.5) {
+    if (r.saturado && r.I > 0.5) {
         avisoSat.classList.remove('oculto');
     } else {
         avisoSat.classList.add('oculto');
     }
 
-    if (estado.corriente > 0 && sonido) {
+    if (r.I > 0 && sonido) {
         sonido.iniciar();
-        sonido.setCorriente(estado.corriente, 30);
+        sonido.setCorriente(r.I, 30);
     } else if (sonido) {
         sonido.setCorriente(0, 30);
     }
@@ -235,8 +239,8 @@ function actualizarPantallaDigital() {
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'right';
     ctx.fillText(`${r.V.toFixed(1)} V`, 480, 90);
-    ctx.fillText(`${estado.corriente.toFixed(1)} A`, 480, 130);
-    ctx.fillText(`${(r.m_max_real * 1000).toFixed(2)} g`, 480, 170);
+    ctx.fillText(`${r.I.toFixed(2)} A`, 480, 130);
+    ctx.fillText(formatearPeso(r.m_max_real), 480, 170);
     ctx.fillStyle = colorTemp;
     ctx.fillText(`${estado.temperatura.toFixed(0)} °C`, 480, 210);
 }
@@ -252,16 +256,16 @@ function explotar() {
     const pos = new THREE.Vector3(0, escena.offsetAlambre ? escena.offsetAlambre.y : 0.5, 0);
     if (escena) escena.explotarBobina(pos);
 
-    estado.corriente = 0;
-    const sliderCorriente = document.getElementById('corriente');
-    if (sliderCorriente) {
-        sliderCorriente.value = 0;
-        document.getElementById('corriente-val').textContent = '0.0';
+    estado.voltaje = 0;
+    const sliderVoltaje = document.getElementById('voltaje');
+    if (sliderVoltaje) {
+        sliderVoltaje.value = 0;
+        document.getElementById('voltaje-val').textContent = '0.0';
     }
-    const ctrlPotencia = document.getElementById('ctrl-potencia');
-    if (ctrlPotencia) {
-        ctrlPotencia.value = 0;
-        document.getElementById('val-potencia').textContent = '0.0 A';
+    const ctrlVoltaje = document.getElementById('ctrl-voltaje');
+    if (ctrlVoltaje) {
+        ctrlVoltaje.value = 0;
+        document.getElementById('val-voltaje').textContent = '0.0 V';
     }
 
     setTimeout(() => {
@@ -286,19 +290,19 @@ function explotar() {
 // CONTROLES HTML DE LA GRÚA
 // ============================================
 function conectarControlesGrua() {
-    const ctrlPotencia = document.getElementById('ctrl-potencia');
+    const ctrlVoltaje = document.getElementById('ctrl-voltaje');
     const ctrlRotacion = document.getElementById('ctrl-rotacion');
     const ctrlExtension = document.getElementById('ctrl-extension');
     const ctrlElevacion = document.getElementById('ctrl-elevacion');
 
-    if (ctrlPotencia) {
-        ctrlPotencia.addEventListener('input', () => {
-            estado.corriente = parseFloat(ctrlPotencia.value);
-            document.getElementById('val-potencia').textContent = estado.corriente.toFixed(1) + ' A';
-            const sliderOriginal = document.getElementById('corriente');
+    if (ctrlVoltaje) {
+        ctrlVoltaje.addEventListener('input', () => {
+            estado.voltaje = parseFloat(ctrlVoltaje.value);
+            document.getElementById('val-voltaje').textContent = estado.voltaje.toFixed(1) + ' V';
+            const sliderOriginal = document.getElementById('voltaje');
             if (sliderOriginal) {
-                sliderOriginal.value = estado.corriente;
-                document.getElementById('corriente-val').textContent = estado.corriente.toFixed(1);
+                sliderOriginal.value = estado.voltaje;
+                document.getElementById('voltaje-val').textContent = estado.voltaje.toFixed(1);
             }
             actualizarTodo();
         });
@@ -433,7 +437,6 @@ function configurarMousePC() {
         actualizarMouseNDC(event);
         raycasterMouse.setFromCamera(mouseNDC, escena.camera);
 
-        // 1. Sliders
         let todosLosSliders = [];
         if (escena && escena.slidersVR) todosLosSliders = todosLosSliders.concat(escena.slidersVR);
         if (escenaPatio && escenaPatio.slidersVR) todosLosSliders = todosLosSliders.concat(escenaPatio.slidersVR);
@@ -448,7 +451,6 @@ function configurarMousePC() {
             }
         }
 
-        // 2. Botones cicladores — ✅ FIX: buscar userData.opciones
         if (escena && escena.botonesCiclicos) {
             const intersectBotones = raycasterMouse.intersectObjects(escena.botonesCiclicos, true);
             if (intersectBotones.length > 0) {
@@ -461,7 +463,6 @@ function configurarMousePC() {
             }
         }
 
-        // 3. Botones de acción — ✅ FIX: buscar userData.accion
         let todosLosBotones = [];
         if (escena && escena.botonesAccion) todosLosBotones = todosLosBotones.concat(escena.botonesAccion);
         if (escenaPatio && escenaPatio.botonesAccion) todosLosBotones = todosLosBotones.concat(escenaPatio.botonesAccion);
@@ -572,7 +573,6 @@ function onGatilloPresionado(controller) {
 
     const rayo = rayoDesdeController(controller);
 
-    // 1. Sliders
     let todosLosSliders = [];
     if (escena && escena.slidersVR) todosLosSliders = todosLosSliders.concat(escena.slidersVR);
     if (escenaPatio && escenaPatio.slidersVR) todosLosSliders = todosLosSliders.concat(escenaPatio.slidersVR);
@@ -589,7 +589,6 @@ function onGatilloPresionado(controller) {
         }
     }
 
-    // 2. Botones cicladores — ✅ FIX: buscar userData.opciones
     if (escena && escena.botonesCiclicos) {
         const intersectBotones = rayo.intersectObjects(escena.botonesCiclicos, true);
         if (intersectBotones.length > 0) {
@@ -602,7 +601,6 @@ function onGatilloPresionado(controller) {
         }
     }
 
-    // 3. Botones de acción — ✅ FIX: buscar userData.accion
     let todosLosBotones = [];
     if (escena && escena.botonesAccion) todosLosBotones = todosLosBotones.concat(escena.botonesAccion);
     if (escenaPatio && escenaPatio.botonesAccion) todosLosBotones = todosLosBotones.concat(escenaPatio.botonesAccion);
@@ -719,11 +717,11 @@ function actualizarSliderVR(perilla, valorNuevo) {
         if (el) el.value = valorClamp;
         const elv = document.getElementById('vueltas-val');
         if (elv) elv.textContent = Math.round(valorClamp);
-    } else if (tipo === 'corriente' || tipo === 'potencia') {
-        estado.corriente = valorClamp;
-        const el = document.getElementById('corriente');
+    } else if (tipo === 'voltaje' || tipo === 'potencia') {
+        estado.voltaje = valorClamp;
+        const el = document.getElementById('voltaje');
         if (el) el.value = valorClamp;
-        const elv = document.getElementById('corriente-val');
+        const elv = document.getElementById('voltaje-val');
         if (elv) elv.textContent = valorClamp.toFixed(1);
     } else if (tipo === 'rotacion' && grua) {
         grua.rotacion = valorClamp;
@@ -816,7 +814,7 @@ window.addEventListener('load', () => {
     vincularSlider('longitud', 'longitud');
     vincularSlider('diametro', 'diametro');
     vincularSlider('vueltas', 'vueltas', v => v.toFixed(0));
-    vincularSlider('corriente', 'corriente');
+    vincularSlider('voltaje', 'voltaje');
 
     document.getElementById('calibre').addEventListener('change', e => {
         estado.awg = parseInt(e.target.value);

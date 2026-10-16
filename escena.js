@@ -22,7 +22,6 @@ class Escena3D {
         this.controls.enableDamping = true;
         this.controls.target.set(0, 1.3, 0);
 
-        // Luces del laboratorio
         this.luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6);
         this.scene.add(this.luzAmbiente);
 
@@ -45,7 +44,6 @@ class Escena3D {
         this.luzDir2.position.set(-1, 1, -1);
         this.scene.add(this.luzDir2);
 
-        // Grupos
         this.grupoLaboratorio = new THREE.Group();
         this.grupoEscena = new THREE.Group();
         this.grupoCampo = new THREE.Group();
@@ -203,17 +201,19 @@ class Escena3D {
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 16px monospace';
 
-        ctx.fillText(`V: ${r.V.toFixed(2)} V`, 30, 95);
-        ctx.fillText(`B: ${r.B_ideal.toFixed(4)} T`, 30, 118);
-        ctx.fillText(`F: ${r.F_ideal.toFixed(2)} N`, 30, 141);
-        ctx.fillText(`Peso máx: ${r.m_max_ideal.toFixed(2)} kg`, 30, 164);
-        ctx.fillText(`Saturación: ${r.saturado ? 'SÍ ⚠️' : 'No'}`, 30, 187);
+        ctx.fillText(`V: ${r.V.toFixed(2)} V`, 30, 90);
+        ctx.fillText(`I: ${r.I.toFixed(2)} A`, 30, 112);
+        ctx.fillText(`B: ${r.B_ideal.toFixed(4)} T`, 30, 134);
+        ctx.fillText(`F: ${r.F_ideal.toFixed(2)} N`, 30, 156);
+        ctx.fillText(`Peso máx: ${formatearPeso(r.m_max_ideal)}`, 30, 178);
+        ctx.fillText(`Saturación: ${r.saturado ? 'SÍ ⚠️' : 'No'}`, 30, 200);
 
         ctx.fillStyle = '#ff8c00';
-        ctx.fillText(`B: ${r.B_real.toExponential(3)} T`, 530, 95);
-        ctx.fillText(`F: ${r.F_real.toExponential(3)} N`, 530, 118);
-        ctx.fillText(`Peso máx: ${(r.m_max_real * 1000).toFixed(3)} g`, 530, 141);
-        ctx.fillText(`Factor k: ${r.k.toFixed(4)}`, 530, 164);
+        ctx.fillText(`B: ${r.B_real.toExponential(3)} T`, 530, 90);
+        ctx.fillText(`F: ${r.F_real.toExponential(3)} N`, 530, 112);
+        ctx.fillText(`Peso máx: ${formatearPeso(r.m_max_real)}`, 530, 134);
+        ctx.fillText(`R bobina: ${r.R.toFixed(3)} Ω`, 530, 156);
+        ctx.fillText(`Polos: ${r.N_polos}`, 530, 178);
 
         ctx.fillStyle = colorTemp;
         ctx.font = 'bold 20px monospace';
@@ -322,7 +322,6 @@ class Escena3D {
             new THREE.BoxGeometry(0.4, 0.15, 0.05),
             new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.7, roughness: 0.4 })
         );
-        // ✅ NO marcar la caja (para que el while suba hasta el grupo con opciones)
         grupo.add(caja);
 
         const canvas = document.createElement('canvas');
@@ -345,7 +344,6 @@ class Escena3D {
             new THREE.MeshBasicMaterial({ map: textura, transparent: true })
         );
         textoMesh.position.set(0, 0, 0.028);
-        // ✅ NO marcar el texto tampoco
         grupo.add(textoMesh);
 
         const canvasEt = document.createElement('canvas');
@@ -419,7 +417,6 @@ class Escena3D {
         grupo.add(zonaColision);
 
         grupoPadre.add(grupo);
-        // ✅ Registramos el GRUPO (que tiene .accion)
         this.botonesAccion.push(grupo);
     }
 
@@ -462,7 +459,7 @@ class Escena3D {
         this.crearSlider(grupo, 0, 1.82, -1.36, 'longitud', 'LONGITUD (cm)', 0x4ecca3, 2, 30, estado.longitud, 0);
         this.crearSlider(grupo, 0, 1.62, -1.36, 'diametro', 'DIÁMETRO (cm)', 0x4ecca3, 1, 15, estado.diametro, 0);
         this.crearSlider(grupo, 0, 1.42, -1.36, 'vueltas', 'VUELTAS', 0x4ecca3, 10, 3000, estado.vueltas, 0);
-        this.crearSlider(grupo, 0, 1.22, -1.36, 'corriente', 'CORRIENTE (A)', 0xff3333, 0, 30, estado.corriente, 0);
+        this.crearSlider(grupo, 0, 1.22, -1.36, 'voltaje', 'VOLTAJE (V)', 0xff3333, 0, 50, estado.voltaje, 0);
     }
 
     crearPanelB_Botones() {
@@ -508,11 +505,11 @@ class Escena3D {
 
         const indiceAwg = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28].indexOf(estado.awg);
         const indiceNucleo = ['aire', 'hierro', 'ferrita', 'silicio', 'permalloy'].indexOf(estado.nucleo);
-        const indiceForma = ['barra', 'u', 'toroidal', 'aire'].indexOf(estado.forma);
+        const indiceForma = ['aire', 'barra', 'u'].indexOf(estado.forma);
 
         this.crearBotonCiclico(panelContenedor, 0, 1.82, 0.05, 'awg', 'CALIBRE (AWG)', 'AWG ' + estado.awg, [10, 12, 14, 16, 18, 20, 22, 24, 26, 28], indiceAwg >= 0 ? indiceAwg : 5, 0);
         this.crearBotonCiclico(panelContenedor, 0, 1.55, 0.05, 'nucleo', 'NÚCLEO', estado.nucleo.toUpperCase(), ['aire', 'hierro', 'ferrita', 'silicio', 'permalloy'], indiceNucleo >= 0 ? indiceNucleo : 1, 0);
-        this.crearBotonCiclico(panelContenedor, 0, 1.28, 0.05, 'forma', 'FORMA', estado.forma.toUpperCase(), ['barra', 'u', 'toroidal', 'aire'], indiceForma >= 0 ? indiceForma : 0, 0);
+        this.crearBotonCiclico(panelContenedor, 0, 1.28, 0.05, 'forma', 'FORMA', estado.forma.toUpperCase(), ['aire', 'barra', 'u'], indiceForma >= 0 ? indiceForma : 1, 0);
     }
 
     crearPanelC_Acciones() {
@@ -598,8 +595,6 @@ class Escena3D {
         let alturaSoporte;
         if (params.forma === 'u') {
             alturaSoporte = h * 0.6 + radioExterno + 0.05;
-        } else if (params.forma === 'toroidal') {
-            alturaSoporte = radioExterno * 1.5 + 0.02;
         } else {
             alturaSoporte = radioExterno * 1.35 + 0.02;
         }
@@ -638,9 +633,9 @@ class Escena3D {
 
         if (params.forma === 'barra') this.dibujarFormaBarra(params, r, yCentroBobina);
         else if (params.forma === 'u') this.dibujarFormaU(params, r, yCentroBobina);
-        else if (params.forma === 'toroidal') this.dibujarFormaToroidal(params, r, yCentroBobina);
         else this.dibujarFormaAire(params, r, yCentroBobina);
 
+        // Fuente de alimentación
         const fuenteX = -anchoMesa / 2 + 0.2;
         const fuenteZ = fondoMesa / 2 - 0.15;
         const fuenteY = alturaPatas + altoMesa / 2;
@@ -783,7 +778,7 @@ class Escena3D {
         const radioVisual = r.radioVisual;
         const longitudBrazo = h * 1.2;
         const separacionBrazos = R * 1.8;
-        const radioNucleo = R * 0.35;
+        const radioNucleo = R * 0.55;
         this.geometriaU = { separacionBrazos, longitudBrazo, radioNucleo };
         const matNucleo = new THREE.MeshStandardMaterial({
             color: nucleoInfo.color,
@@ -862,58 +857,6 @@ class Escena3D {
         return new THREE.CatmullRomCurve3(puntos);
     }
 
-    dibujarFormaToroidal(params, r, yCentro) {
-        const h = params.longitud / 100;
-        const D = params.diametro / 100;
-        const R = D / 2;
-        const nucleoInfo = NUCLEO_DATA[params.nucleo];
-        const radioVisual = r.radioVisual;
-        const tuboRadio = r.tuboRadio;
-        const radioMayor = tuboRadio * 1.2;
-        const radioMenor = R * 0.45;
-        this.geometriaToroidal = { radioMayor, radioMenor };
-        const toro = new THREE.Mesh(
-            new THREE.TorusGeometry(radioMayor, radioMenor, 24, 48),
-            new THREE.MeshStandardMaterial({
-                color: nucleoInfo.color,
-                metalness: nucleoInfo.metal,
-                roughness: nucleoInfo.rough
-            })
-        );
-        toro.rotation.x = Math.PI / 2;
-        toro.position.y = yCentro;
-        toro.castShadow = true;
-        this.grupoEscena.add(toro);
-        const temp = r.temperatura || 25;
-        const color = this.colorPorTemperatura(temp);
-        const matAlambre = new THREE.MeshStandardMaterial({
-            color: color, metalness: 0.95, roughness: 0.25,
-            emissive: color, emissiveIntensity: temp > 100 ? 0.6 : 0.1
-        });
-        this.curvasAlambre = [];
-        const gruposVueltas = Math.min(params.vueltas, 200);
-        const puntos = [];
-        const puntosPorVuelta = 24;
-        for (let g = 0; g <= gruposVueltas; g++) {
-            const anguloGrande = (g / gruposVueltas) * Math.PI * 2;
-            const cx = radioMayor * Math.cos(anguloGrande);
-            const cz = radioMayor * Math.sin(anguloGrande);
-            for (let p = 0; p < puntosPorVuelta; p++) {
-                const subAngulo = (p / puntosPorVuelta) * Math.PI * 2;
-                const offsetX = Math.cos(anguloGrande) * radioMenor * Math.cos(subAngulo);
-                const offsetY = radioMenor * Math.sin(subAngulo);
-                const offsetZ = Math.sin(anguloGrande) * radioMenor * Math.cos(subAngulo);
-                puntos.push(new THREE.Vector3(cx + offsetX, yCentro + offsetY, cz + offsetZ));
-            }
-        }
-        const curva = new THREE.CatmullRomCurve3(puntos);
-        const geoAlambre = new THREE.TubeGeometry(curva, puntos.length, radioVisual * 0.7, 6, false);
-        const alambre = new THREE.Mesh(geoAlambre, matAlambre);
-        this.grupoEscena.add(alambre);
-        this.curvasAlambre.push(curva);
-        this.curvaAlambre = curva;
-    }
-
     dibujarFormaAire(params, r, yCentro) {
         const h = params.longitud / 100;
         const radioVisual = r.radioVisual;
@@ -990,7 +933,6 @@ class Escena3D {
         const forma = this.formaActual || 'barra';
         if (forma === 'barra') this.campoBarra(B, saturado);
         else if (forma === 'u') this.campoU(B, saturado);
-        else if (forma === 'toroidal') this.campoToroidal(B, saturado);
         else this.campoAire(B, saturado);
     }
 
@@ -1061,39 +1003,6 @@ class Escena3D {
             ));
         }
         this.crearParticulasCampoU(numLineas, intensidad, saturado);
-    }
-
-    campoToroidal(B, saturado) {
-        const Bmax = 2.5;
-        const intensidad = Math.min(Math.pow(B / Bmax, 0.5), 1);
-        const colorBase = saturado ? 0xff4444 : 0x66ccff;
-        const centro = new THREE.Vector3(0, this.offsetAlambre.y, 0);
-        const geo = this.geometriaToroidal;
-        const radioMayor = geo.radioMayor;
-        const radioMenor = geo.radioMenor;
-        const numLineas = Math.floor(8 + intensidad * 12);
-        const alcance = radioMenor;
-        this.parametrosCampo = { numLineas, alcance, h: radioMayor, centro, intensidad, tipo: 'toroidal', radioMayor, radioMenor };
-        for (let k = 0; k < numLineas; k++) {
-            const frac = k / numLineas;
-            const rLinea = radioMayor * (0.5 + frac * 0.45);
-            const puntos = [];
-            const numPuntos = 80;
-            for (let j = 0; j <= numPuntos; j++) {
-                const t = j / numPuntos;
-                const angulo = t * Math.PI * 2;
-                const x = rLinea * Math.cos(angulo);
-                const z = rLinea * Math.sin(angulo);
-                const y = centro.y;
-                puntos.push(new THREE.Vector3(x, y, z));
-            }
-            const curva = new THREE.CatmullRomCurve3(puntos);
-            const geoLinea = new THREE.TubeGeometry(curva, 120, 0.0012 + intensidad * 0.0015, 6, false);
-            this.grupoCampo.add(new THREE.Mesh(geoLinea,
-                new THREE.MeshBasicMaterial({ color: colorBase, transparent: true, opacity: 0.6 + intensidad * 0.4 })
-            ));
-        }
-        this.crearParticulasCampoToroidal(numLineas, intensidad, saturado);
     }
 
     campoAire(B, saturado) {
@@ -1172,29 +1081,6 @@ class Escena3D {
         }
     }
 
-    crearParticulasCampoToroidal(numLineas, intensidad, saturado) {
-        if (intensidad < 0.05) return;
-        const numPart = Math.floor(20 + intensidad * 60);
-        const geoPart = new THREE.SphereGeometry(0.002 + intensidad * 0.002, 6, 6);
-        const centro = new THREE.Vector3(0, this.offsetAlambre.y, 0);
-        const geo = this.geometriaToroidal;
-        for (let i = 0; i < numPart; i++) {
-            const matPart = new THREE.MeshBasicMaterial({
-                color: saturado ? 0xffaaaa : 0xaaddff,
-                transparent: true, opacity: 0.85
-            });
-            const p = new THREE.Mesh(geoPart, matPart);
-            p.userData.lineaIdx = Math.floor(Math.random() * numLineas);
-            p.userData.t = Math.random();
-            p.userData.velocidad = 0.15 + intensidad * 0.25 + Math.random() * 0.1;
-            p.userData.tipo = 'toroidal';
-            p.userData.centro = centro;
-            p.userData.geo = geo;
-            this.grupoParticulasCampo.add(p);
-            this.particulasCampo.push(p);
-        }
-    }
-
     calcularPosicionParticula(p) {
         const t = p.userData.t;
         const lineaIdx = p.userData.lineaIdx;
@@ -1230,13 +1116,6 @@ class Escena3D {
             const y = centro.y + alturaCampo + offsetY;
             const z = offsetZ;
             return new THREE.Vector3(x, y, z);
-        } else if (tipo === 'toroidal') {
-            const geo = p.userData.geo;
-            const angulo = t * Math.PI * 2;
-            const x = geo.radioMayor * Math.cos(angulo);
-            const z = geo.radioMayor * Math.sin(angulo);
-            const y = centro.y;
-            return new THREE.Vector3(x, y, z);
         } else {
             const numLineas = params.numLineas || 6;
             const alcance = params.alcance || 0.1;
@@ -1257,8 +1136,8 @@ class Escena3D {
         this.electrones = [];
         if (I < 0.1 || !this.curvasAlambre || this.curvasAlambre.length === 0) return;
         const forma = this.formaActual || 'barra';
-        let radioElectron = (forma === 'u' || forma === 'toroidal') ? 0.0018 : 0.003;
-        let numElectrones = (forma === 'u' || forma === 'toroidal')
+        let radioElectron = (forma === 'u') ? 0.0018 : 0.003;
+        let numElectrones = (forma === 'u')
             ? Math.min(Math.floor(I * 3) + 10, 50)
             : Math.min(Math.floor(I * 2) + 5, 30);
         const geo = new THREE.SphereGeometry(radioElectron, 8, 8);

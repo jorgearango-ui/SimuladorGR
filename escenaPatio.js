@@ -6,7 +6,6 @@ class EscenaPatio {
     constructor(sceneCompartida) {
         this.scene = sceneCompartida;
 
-        // Grupos del patio
         this.grupoIndustrial = new THREE.Group();
         this.grupoGrua = new THREE.Group();
         this.grupoPanelD = new THREE.Group();
@@ -19,7 +18,6 @@ class EscenaPatio {
         this.scene.add(this.grupoPanelE);
         this.scene.add(this.grupoPanelF);
 
-        // Luces del patio
         this.luzAmbiente = new THREE.AmbientLight(0xffffff, 0.4);
         this.scene.add(this.luzAmbiente);
 
@@ -52,8 +50,6 @@ class EscenaPatio {
         this.crearPanelE_GruaAcciones();
         this.crearPanelF_GruaValores();
 
-        // ✅ FIX: posicionar todo DELANTE del usuario VR (-z)
-        // El usuario VR aparece en (0,0,0) mirando hacia -z
         this.grupoPanelD.position.set(0, 1.6, -2.0);
         this.grupoPanelE.position.set(-1.7, 1.6, -1.6);
         this.grupoPanelF.position.set(1.7, 1.6, -1.6);
@@ -88,7 +84,6 @@ class EscenaPatio {
                     roughness: 0.7, metalness: 0.3
                 })
             );
-            // ✅ Contenedores alrededor del origen, evitando la zona frontal
             const angulo = (i / 30) * Math.PI * 2 + Math.PI;
             const radio = 8 + Math.random() * 6;
             cont.position.set(Math.cos(angulo) * radio, hh / 2, Math.sin(angulo) * radio);
@@ -170,7 +165,6 @@ class EscenaPatio {
         const grupo = this.grupoPanelF;
 
         const panelContenedor = new THREE.Group();
-        // ✅ FIX: panel derecho, gira -π/6 hacia el centro
         panelContenedor.rotation.y = -Math.PI / 6;
         grupo.add(panelContenedor);
 
@@ -239,9 +233,9 @@ class EscenaPatio {
         ctx.textAlign = 'right';
         ctx.fillStyle = '#ffcc00';
         ctx.fillText(`${r.V.toFixed(1)} V`, 480, 100);
-        ctx.fillText(`${estado.corriente.toFixed(1)} A`, 480, 145);
+        ctx.fillText(`${r.I.toFixed(2)} A`, 480, 145);
         ctx.fillText(`${r.B_real.toExponential(2)} T`, 480, 190);
-        ctx.fillText(`${(r.m_max_real * 1000).toFixed(2)} g`, 480, 235);
+        ctx.fillText(formatearPeso(r.m_max_real), 480, 235);
         ctx.fillStyle = colorTemp;
         ctx.fillText(`${estado.temperatura.toFixed(0)} °C`, 480, 280);
         ctx.fillStyle = '#ff8c00';
@@ -388,7 +382,6 @@ class EscenaPatio {
         const grupo = this.grupoPanelD;
 
         const panelContenedor = new THREE.Group();
-        // ✅ Panel centro, mira directo a +z (hacia el usuario)
         panelContenedor.rotation.y = 0;
         grupo.add(panelContenedor);
 
@@ -424,7 +417,7 @@ class EscenaPatio {
         titulo.position.set(0, 0.5, 0.04);
         panelContenedor.add(titulo);
 
-        this.crearSlider(panelContenedor, 0, 0.32, 0.04, 'potencia', 'POTENCIA (A)', 0xff3333, 0, 30, estado.corriente, 0);
+        this.crearSlider(panelContenedor, 0, 0.32, 0.04, 'voltaje', 'VOLTAJE (V)', 0xff3333, 0, 50, estado.voltaje, 0);
         this.crearSlider(panelContenedor, 0, 0.12, 0.04, 'rotacion', 'ROTACIÓN', 0x33aaff, 0, 360, 0, 0);
         this.crearSlider(panelContenedor, 0, -0.08, 0.04, 'extension', 'EXTENSIÓN', 0x33ff33, 0.2, 2.0, 1.0, 0);
         this.crearSlider(panelContenedor, 0, -0.28, 0.04, 'elevacion', 'ELEVACIÓN', 0xffcc00, -1, 1, 0, 0);
@@ -434,7 +427,6 @@ class EscenaPatio {
         const grupo = this.grupoPanelE;
 
         const panelContenedor = new THREE.Group();
-        // ✅ Panel izquierdo, gira +π/6 hacia el centro
         panelContenedor.rotation.y = Math.PI / 6;
         grupo.add(panelContenedor);
 
